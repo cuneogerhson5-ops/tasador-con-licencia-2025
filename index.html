@@ -52,8 +52,48 @@
 
     <!-- Panel que se muestra tras validar -->
     <section id="app-section" class="card hidden">
-      <h2>Panel</h2>
-      <p>Licencia verificada. Aquí aparecerán tus herramientas de tasación.</p>
+      <h2>Tasación</h2>
+
+      <h3>Departamento</h3>
+      <form id="form-depto" class="form-grid">
+        <label>Distrito
+          <select id="depto-distrito" required></select>
+        </label>
+        <label>Subzona
+          <select id="depto-subzona" required disabled></select>
+        </label>
+        <label>Área techada (m²)<input type="number" id="depto-area-techada" min="0" step="0.01" required></label>
+        <label>Área libre (m²)<input type="number" id="depto-area-libre" min="0" step="0.01" required></label>
+        <button class="btn primary" type="submit">Calcular</button>
+      </form>
+      <div id="depto-result" class="status"></div>
+
+      <h3>Casa</h3>
+      <form id="form-casa" class="form-grid">
+        <label>Distrito
+          <select id="casa-distrito" required></select>
+        </label>
+        <label>Subzona
+          <select id="casa-subzona" required disabled></select>
+        </label>
+        <label>Área techada (m²)<input type="number" id="casa-area-techada" min="0" step="0.01" required></label>
+        <label>Área libre (m²)<input type="number" id="casa-area-libre" min="0" step="0.01" required></label>
+        <button class="btn primary" type="submit">Calcular</button>
+      </form>
+      <div id="casa-result" class="status"></div>
+
+      <h3>Terreno</h3>
+      <form id="form-terreno" class="form-grid">
+        <label>Distrito
+          <select id="terreno-distrito" required></select>
+        </label>
+        <label>Subzona
+          <select id="terreno-subzona" required disabled></select>
+        </label>
+        <label>Área (m²)<input type="number" id="terreno-area" min="0" step="0.01" required></label>
+        <button class="btn primary" type="submit">Calcular</button>
+      </form>
+      <div id="terreno-result" class="status"></div>
     </section>
 
     <section class="card">
@@ -81,4 +121,5 @@
   </script>
 </body>
 </html>
+
 
