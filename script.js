@@ -12,7 +12,15 @@ let TARIFAS = [];
 // ========== API ==========
 async function apiTariffs(){ const r = await fetch(TARIFF_URL); if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
 async function apiValidate(email, license){ const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(license)}`); if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
-async function apiIssue(payload){ const r = await fetch(ISSUE_URL, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload) }); if(!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }
+async function apiIssue(payload){
+  const r = await fetch(ISSUE_URL, {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
 
 // ========== HELPERS ==========
 const $ = (id)=>document.getElementById(id);
@@ -40,7 +48,7 @@ function poblarDistritos(selectId){
 function poblarSubzonas(distrito, selectId){
   const sel=$(selectId);
   sel.innerHTML=`<option value="">— Selecciona —</option>`;
-  unique(TARIFAS.filter(t=>t.distrito===distrito).map(t=>t.subzona)).forEach(s=>{
+  unique(TARIFAS.filter(t=>t.distrito===d).map(t=>t.subzona)).forEach(s=>{
     sel.insertAdjacentHTML("beforeend", `<option value="${s}">${s}</option>`);
   });
   sel.disabled = sel.options.length<=1;
@@ -142,4 +150,25 @@ window.addEventListener("DOMContentLoaded", ()=>{
     </div>`;
   });
 });
+
+// ========== EMISIÓN DIRECTA (BOTÓN/CONSOLA) ==========
+// Emisión de prueba S/100 con voucher público
+async function emitirLicencia(){
+  const payload = {
+    buyerName: "Gerhson C.",
+    buyerEmail: "gerhson.cueno@gmail.com",
+    buyerDocType: "DNI",
+    buyerDocId: "00000000",
+    payMethod: "Yape/Plin",
+    amount: "100",
+    voucherUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200",
+    notes: "Emisión prueba S/100"
+  };
+  return apiIssue(payload);
+}
+
+// Exponer al global para usarlo desde un botón o consola
+if (typeof window !== "undefined") { window.emitirLicencia = emitirLicencia; }
+
+
 
