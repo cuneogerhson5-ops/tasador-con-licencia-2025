@@ -1,6 +1,6 @@
 // ========== CONFIGURACIÓN BACKEND ==========
 // Reemplaza SOLO esta línea con tu URL /exec exacta (sin action)
-const BASE_URL = "https://script.google.com/macros/s/AKfycbxzJrzoMS2CblbRf6vDErbjpNsdDfojMdZ376WsRvgWDR760ZSHTlrWDzZ3gCPb2nWf_g/exec";
+const BASE_URL = "https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec";
 // No edites lo de abajo:
 const TARIFF_URL = `${BASE_URL}?action=tariffs`;
 const VALIDATE_URL = `${BASE_URL}?action=validate`;
@@ -142,3 +142,4 @@ window.addEventListener("DOMContentLoaded", ()=>{
     </div>`;
   });
 });
+
