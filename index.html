@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Tasador Inmobiliario Pro</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="app-header">
+    <h1>Tasador Inmobiliario Pro</h1>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2>Validación de licencia</h2>
+      <form id="license-form" class="form-grid">
+        <label>Correo<input type="email" id="email" required></label>
+        <label>Licencia<input type="text" id="licenseId" required></label>
+        <button class="btn primary" type="submit">Validar</button>
+      </form>
+      <div id="license-status" class="status"></div>
+    </section>
+
+    <section class="card">
+      <h2>Compra de licencia</h2>
+      <form id="purchase-form" class="form-grid">
+        <label>Nombres<input id="buyerName" required></label>
+        <label>Correo<input type="email" id="buyerEmail" required></label>
+        <label>Doc. tipo
+          <select id="buyerDocType" required>
+            <option value="DNI">DNI</option>
+            <option value="CE">CE</option>
+            <option value="RUC">RUC</option>
+          </select>
+        </label>
+        <label>Doc. número<input id="buyerDocId" required></label>
+        <label>Medio de pago
+          <select id="payMethod" required>
+            <option>Yape/Plin</option>
+            <option>Transferencia</option>
+            <option>Tarjeta</option>
+          </select>
+        </label>
+        <label>Monto (S/)<input type="number" id="amount" min="1" step="0.01" required></label>
+        <label>Voucher URL<input type="url" id="voucherUrl" required></label>
+        <label>Notas<textarea id="notes" rows="2"></textarea></label>
+        <button class="btn success" type="submit">Emitir licencia</button>
+      </form>
+      <div id="purchase-status" class="status"></div>
+    </section>
+
+    <section class="card">
+      <h2>Prueba rápida issue</h2>
+      <button id="emitir-btn" class="btn primary">Emitir prueba (S/100)</button>
+      <pre id="emitir-out"></pre>
+    </section>
+  </main>
+
+  <!-- Tu JS principal -->
+  <script src="script.js"></script>
+
+  <!-- Exponer la función al global -->
+  <script>
+    if (typeof window !== "undefined") { window.emitirLicencia = window.emitirLicencia || emitirLicencia; }
+  </script>
+
+  <!-- Handler del botón de prueba -->
+  <script>
+    document.getElementById('emitir-btn').onclick = async () => {
+      if (!window.emitirLicencia) return alert('Función no cargada');
+      const res = await window.emitirLicencia();
+      document.getElementById('emitir-out').textContent = JSON.stringify(res, null, 2);
+    };
+  </script>
+</body>
+</html>
