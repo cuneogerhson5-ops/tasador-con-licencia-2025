@@ -1,7 +1,5 @@
 // ========== CONFIGURACIÓN BACKEND ==========
-// Reemplaza SOLO esta línea con tu URL /exec exacta (sin action)
 const BASE_URL = "https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec";
-// No edites lo de abajo:
 const TARIFF_URL = `${BASE_URL}?action=tariffs`;
 const VALIDATE_URL = `${BASE_URL}?action=validate`;
 const ISSUE_URL = `${BASE_URL}?action=issue`;
@@ -25,6 +23,7 @@ async function apiIssue(payload){
 // ========== HELPERS ==========
 const $ = (id)=>document.getElementById(id);
 const unique = (arr)=>Array.from(new Set(arr));
+const norm = (s)=>String(s??"").trim().toLowerCase();
 function setStatus(id, msg, ok=false){ const el=$(id); el.textContent=msg||""; el.classList.remove("error","ok"); if(msg) el.classList.add(ok?"ok":"error"); }
 
 // ========== TABS ==========
@@ -41,19 +40,59 @@ document.addEventListener("click",(e)=>{
 function poblarDistritos(selectId){
   const sel=$(selectId);
   sel.innerHTML=`<option value="">— Selecciona —</option>`;
-  unique(TARIFAS.map(t=>t.distrito)).forEach(d=>{
-    sel.insertAdjacentHTML("beforeend", `<option value="${d}">${d}</option>`);
-  });
+  const distritos = unique(TARIFAS.map(t=>String(t.distrito||"").trim())).filter(Boolean).sort();
+  distritos.forEach(d=> sel.insertAdjacentHTML("beforeend", `<option value="${d}">${d}</option>`));
 }
 function poblarSubzonas(distrito, selectId){
   const sel=$(selectId);
   sel.innerHTML=`<option value="">— Selecciona —</option>`;
-  unique(TARIFAS.filter(t=>t.distrito===d).map(t=>t.subzona)).forEach(s=>{
-    sel.insertAdjacentHTML("beforeend", `<option value="${s}">${s}</option>`);
-  });
+  const dKey = norm(distrito);
+  const subzonas = unique(
+    TARIFAS
+      .filter(t=> norm(t.distrito)===dKey)
+      .map(t=> String(t.subzona||"").trim())
+  ).filter(Boolean).sort();
+  subzonas.forEach(s=> sel.insertAdjacentHTML("beforeend", `<option value="${s}">${s}</option>`));
   sel.disabled = sel.options.length<=1;
+  // console.log("Subzonas de", distrito, subzonas);
 }
-function buscarVM2(d,s){ const it=TARIFAS.find(t=>t.distrito===d && t.subzona===s); return it? Number(it.valorM2): NaN; }
+function buscarVM2(d,s){
+  const dKey = norm(d), sKey = norm(s);
+  const it = TARIFAS.find(t=> norm(t.distrito)===dKey && norm(t.subzona)===sKey);
+  return it? Number(it.valorM2): NaN;
+}
+
+// ========== AJUSTES (placeholders; puedes calibrar factores) ==========
+function factorDepto({piso, ascensor, condicion, dormitorios, antiguedad}){
+  let f=1;
+  // Piso y ascensor
+  if (piso>4 && ascensor==="no") f *= 0.96;
+  // Condición
+  const c = norm(condicion);
+  if (c==="a estrenar") f*=1.06;
+  else if (c==="bueno") f*=1.02;
+  else if (c==="regular") f*=0.98;
+  else if (c==="para remodelar") f*=0.94;
+  // Dormitorios (ligero ajuste)
+  if (dormitorios>=4) f*=1.02;
+  else if (dormitorios===1) f*=0.98;
+  // Antigüedad
+  if (antiguedad>=20 && antiguedad<40) f*=0.97;
+  else if (antiguedad>=40) f*=0.93;
+  return f;
+}
+function factorCasa({condicion, dormitorios, antiguedad}){
+  let f=1;
+  const c = norm(condicion);
+  if (c==="a estrenar") f*=1.06;
+  else if (c==="bueno") f*=1.02;
+  else if (c==="regular") f*=0.98;
+  else if (c==="para remodelar") f*=0.94;
+  if (dormitorios>=5) f*=1.02;
+  if (antiguedad>=20 && antiguedad<40) f*=0.97;
+  else if (antiguedad>=40) f*=0.93;
+  return f;
+}
 
 // ========== EVENTOS ==========
 window.addEventListener("DOMContentLoaded", ()=>{
@@ -69,6 +108,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
         document.getElementById("app-section").classList.remove("hidden");
         if(TARIFAS.length===0){
           TARIFAS = await apiTariffs();
+          // console.log("TARIFAS", TARIFAS.slice(0,10));
           // Departamento
           poblarDistritos("depto-distrito");
           $("depto-distrito").addEventListener("change", e=>poblarSubzonas(e.target.value,"depto-subzona"));
@@ -112,13 +152,21 @@ window.addEventListener("DOMContentLoaded", ()=>{
   $("form-depto").addEventListener("submit", (ev)=>{
     ev.preventDefault();
     const d=$("depto-distrito").value, s=$("depto-subzona").value;
+    const piso = Number($("depto-piso").value||0);
+    const ascensor = $("depto-ascensor").value;
+    const condicion = $("depto-condicion").value;
+    const dormitorios = Number($("depto-dormitorios").value||0);
+    const antiguedad = Number($("depto-antiguedad").value||0);
     const at=Number($("depto-area-techada").value||0), al=Number($("depto-area-libre").value||0);
     const vm2=buscarVM2(d,s), out=$("depto-result");
     if(!d||!s||!isFinite(vm2)) return out.textContent="Selecciona distrito/subzona válidos";
-    const total=at+al, val=total*vm2;
+    const total=at+al;
+    const f = factorDepto({piso, ascensor, condicion, dormitorios, antiguedad});
+    const val= total * vm2 * f;
     out.innerHTML = `<div class="grid">
       <div class="pill"><h4>Área</h4><div>${total.toFixed(2)} m²</div></div>
       <div class="pill"><h4>Valor m²</h4><div>${vm2.toLocaleString()}</div></div>
+      <div class="pill"><h4>Ajuste</h4><div>x ${f.toFixed(3)}</div></div>
       <div class="pill"><h4>Valor</h4><div>${val.toLocaleString()}</div></div>
     </div>`;
   });
@@ -126,13 +174,19 @@ window.addEventListener("DOMContentLoaded", ()=>{
   $("form-casa").addEventListener("submit", (ev)=>{
     ev.preventDefault();
     const d=$("casa-distrito").value, s=$("casa-subzona").value;
+    const condicion = $("casa-condicion").value;
+    const dormitorios = Number($("casa-dormitorios").value||0);
+    const antiguedad = Number($("casa-antiguedad").value||0);
     const at=Number($("casa-area-techada").value||0), al=Number($("casa-area-libre").value||0);
     const vm2=buscarVM2(d,s), out=$("casa-result");
     if(!d||!s||!isFinite(vm2)) return out.textContent="Selecciona distrito/subzona válidos";
-    const total=at+al, val=total*vm2;
+    const total=at+al;
+    const f = factorCasa({condicion, dormitorios, antiguedad});
+    const val= total * vm2 * f;
     out.innerHTML = `<div class="grid">
       <div class="pill"><h4>Área</h4><div>${total.toFixed(2)} m²</div></div>
       <div class="pill"><h4>Valor m²</h4><div>${vm2.toLocaleString()}</div></div>
+      <div class="pill"><h4>Ajuste</h4><div>x ${f.toFixed(3)}</div></div>
       <div class="pill"><h4>Valor</h4><div>${val.toLocaleString()}</div></div>
     </div>`;
   });
@@ -152,7 +206,6 @@ window.addEventListener("DOMContentLoaded", ()=>{
 });
 
 // ========== EMISIÓN DIRECTA (BOTÓN/CONSOLA) ==========
-// Emisión de prueba S/100 con voucher público
 async function emitirLicencia(){
   const payload = {
     buyerName: "Gerhson C.",
@@ -166,9 +219,8 @@ async function emitirLicencia(){
   };
   return apiIssue(payload);
 }
-
-// Exponer al global para usarlo desde un botón o consola
 if (typeof window !== "undefined") { window.emitirLicencia = emitirLicencia; }
+
 
 
 
