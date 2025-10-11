@@ -33,6 +33,7 @@ function poblarDistritos(selectId){
   const distritos = unique(TARIFAS.map(t=>String(t.distrito||"").trim())).filter(Boolean).sort();
   distritos.forEach(d=> sel.insertAdjacentHTML("beforeend", `<option value="${d}">${d}</option>`));
 }
+
 function poblarSubzonas(distrito, selectId){
   const sel=$(selectId);
   sel.innerHTML=`<option value="">— Selecciona —</option>`;
@@ -45,64 +46,63 @@ function poblarSubzonas(distrito, selectId){
   subzonas.forEach(s=> sel.insertAdjacentHTML("beforeend", `<option value="${s}">${s}</option>`));
   sel.disabled = sel.options.length<=1;
 }
+
 function buscarVM2(d,s){
   const dKey = norm(d), sKey = norm(s);
   const it = TARIFAS.find(t=> norm(t.distrito)===dKey && norm(t.subzona)===sKey);
   return it? Number(it.valorM2): NaN;
 }
 
-// ========== FACTORES DE TASACIÓN (basados en el ejemplo) ==========
+// ========== FACTORES DE TASACIÓN ==========
 function factorDepto({piso, ascensor, condicion, dormitorios, antiguedad}){
   let f=1;
-  // Piso y ascensor (exactos del ejemplo)
+  // Piso y ascensor
   if (piso<=2 && norm(ascensor)==="si") f *= 1.01; // +1% piso bajo con ascensor
   if (piso>4 && norm(ascensor)==="no") f *= 0.96; // -4% piso alto sin ascensor
   
-  // Condición (exactos del ejemplo)
+  // Condición
   const c = norm(condicion);
   if (c==="a estrenar") f*=1.06;     // +6%
   else if (c==="bueno") f*=1.02;     // +2%
-  else if (c==="regular") f*=0.98;   // -2% (como en el ejemplo)
+  else if (c==="regular") f*=0.98;   // -2%
   else if (c==="para remodelar") f*=0.94; // -6%
   
-  // Dormitorios (exactos del ejemplo)
+  // Dormitorios
   if (dormitorios>=4) f*=1.02;       // +2%
   else if (dormitorios===1) f*=0.98; // -2%
-  // 2-3 dormitorios = neutro (factor 1.0)
   
-  // Antigüedad (exactos del ejemplo)
+  // Antigüedad
   if (antiguedad>=20 && antiguedad<40) f*=0.97; // -3%
   else if (antiguedad>=40) f*=0.93;             // -7%
-  // <20 años = neutro (como 15 años en el ejemplo)
   
   return f;
 }
 
 function factorCasa({condicion, dormitorios, antiguedad}){
   let f=1;
-  // Condición (igual que departamento)
+  // Condición
   const c = norm(condicion);
   if (c==="a estrenar") f*=1.06;
   else if (c==="bueno") f*=1.02;
   else if (c==="regular") f*=0.98;
   else if (c==="para remodelar") f*=0.94;
   
-  // Dormitorios (para casas, umbral en 5+)
+  // Dormitorios
   if (dormitorios>=5) f*=1.02;
   else if (dormitorios===1) f*=0.98;
   
-  // Antigüedad (igual que departamento)
+  // Antigüedad
   if (antiguedad>=20 && antiguedad<40) f*=0.97;
   else if (antiguedad>=40) f*=0.93;
   
   return f;
 }
 
-// ========== RANGOS MIN/MEDIO/ALTO (exactos del ejemplo) ==========
+// ========== RANGOS MIN/MEDIO/ALTO ==========
 function calcularRango({medio, piso, ascensor, condicion}){
   let low = 0.95, high = 1.05; // ±5% estándar
   
-  // Ajustes contextuales (exactos del ejemplo)
+  // Ajustes contextuales
   const sinAscensorPisoAlto = (piso>4 && norm(ascensor)==="no");
   if (sinAscensorPisoAlto) low = 0.94; // -6% si piso alto sin ascensor
   
@@ -128,6 +128,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
         document.getElementById("app-section").classList.remove("hidden");
         if(TARIFAS.length===0){
           TARIFAS = await apiTariffs();
+          console.log("TARIFAS cargadas:", TARIFAS.slice(0,5));
           // Departamento
           poblarDistritos("depto-distrito");
           $("depto-distrito").addEventListener("change", e=>poblarSubzonas(e.target.value,"depto-subzona"));
@@ -142,6 +143,7 @@ window.addEventListener("DOMContentLoaded", ()=>{
         setStatus("license-status", v.error || "Licencia inválida");
       }
     }catch(err){
+      console.error("Error validación:", err);
       setStatus("license-status", `Fallo: ${err.message}`);
     }
   });
@@ -170,6 +172,8 @@ window.addEventListener("DOMContentLoaded", ()=>{
 
   $("form-depto").addEventListener("submit", (ev)=>{
     ev.preventDefault();
+    console.log("Calculando departamento...");
+    
     const d=$("depto-distrito").value, s=$("depto-subzona").value;
     const piso = Number($("depto-piso").value||0);
     const ascensor = $("depto-ascensor").value;
@@ -178,13 +182,18 @@ window.addEventListener("DOMContentLoaded", ()=>{
     const antiguedad = Number($("depto-antiguedad").value||0);
     const at=Number($("depto-area-techada").value||0), al=Number($("depto-area-libre").value||0);
     const vm2=buscarVM2(d,s), out=$("depto-result");
+    
+    console.log("Datos:", {d, s, vm2, at, al, piso, ascensor, condicion, dormitorios, antiguedad});
+    
     if(!d||!s||!isFinite(vm2)) return out.textContent="Selecciona distrito/subzona válidos";
     
-    // ÁREA PONDERADA: área libre al 50% (exacto del ejemplo)
+    // ÁREA PONDERADA: área libre al 50%
     const areaPonderada = at + (0.5 * al);
     const f = factorDepto({piso, ascensor, condicion, dormitorios, antiguedad});
     const medio = areaPonderada * vm2 * f;
     const {minimo, alto} = calcularRango({medio, piso, ascensor, condicion});
+    
+    console.log("Resultado:", {areaPonderada, f, medio, minimo, alto});
     
     out.innerHTML = `
       <div class="grid">
@@ -270,3 +279,4 @@ async function emitirLicencia(){
   return apiIssue(payload);
 }
 if (typeof window !== "undefined") { window.emitirLicencia = emitirLicencia; }
+
