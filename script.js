@@ -36,7 +36,6 @@ const ISSUE_URL    = `${BASE_URL}?action=issue`;
 const $ = (id) => document.getElementById(id);
 const norm = (s)=> String(s??"").trim().toLowerCase();
 const unique = (arr)=> Array.from(new Set(arr));
-
 function setStatus(id, msg, ok=false){
   const el = document.getElementById(id);
   if (!el) return;
@@ -48,7 +47,7 @@ function setStatus(id, msg, ok=false){
 // ====== ESTADO ======
 let TARIFAS = []; // [{distrito, subzona, valorM2:Number}]
 
-// ====== API LICENCIAS ======
+// ====== API LICENCIAS (VALIDAR/EMITIR) ======
 async function apiValidate(email, license){
   const url = `${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(license)}`;
   const r = await fetch(url, { method: "GET" });
@@ -93,7 +92,7 @@ async function apiTariffs(){
   const data = await r.json();
   return (data||[]).map(t=>{
     let v = t.valorM2;
-    if (typeof v === "string") v = v.replace(/[^\d.]/g,""); // S/, comas, espacios
+    if (typeof v === "string") v = v.replace(/[^\d.]/g,""); // limpia S/, comas y espacios
     return {
       distrito: String(t.distrito||"").trim(),
       subzona: String(t.subzona||"").trim(),
@@ -276,11 +275,11 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     console.error("Error cargando tarifas:", err);
   }
 
-  // Validación de licencia (no borra inputs)
+  // Validación de licencia (evita recarga y no borra inputs)
   const licenseForm = document.getElementById("license-form");
   if (licenseForm){
     licenseForm.addEventListener("submit", async (ev)=>{
-      ev.preventDefault();
+      ev.preventDefault(); // evita que el navegador recargue y borre los campos [web:137][web:135]
       const email = (document.getElementById("email")?.value || "").trim();
       const license = (document.getElementById("licenseId")?.value || "").trim();
       if (!email || !license){
