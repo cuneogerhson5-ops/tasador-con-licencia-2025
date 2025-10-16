@@ -1,4 +1,4 @@
-// ====== LOGIN / GATE (SIN CAMBIOS) ======
+// ====== LOGIN / GATE ======
 const CLAVE_GLOBAL = "12345";
 const gate = document.getElementById('gate');
 const app = document.getElementById('app');
@@ -26,11 +26,11 @@ if (logout){
   };
 }
 
-// ====== CONFIG BACKEND (LICENCIAS Y TARIFAS) ======
+// ====== CONFIG BACKEND (Apps Script) ======
 const BASE_URL = "https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec";
-const TARIFF_URL = `${BASE_URL}?action=tariffs`;
+const TARIFF_URL   = `${BASE_URL}?action=tariffs`;
 const VALIDATE_URL = `${BASE_URL}?action=validate`;
-const ISSUE_URL = `${BASE_URL}?action=issue`;
+const ISSUE_URL    = `${BASE_URL}?action=issue`;
 
 // ====== UTILIDADES ======
 const $ = (id) => document.getElementById(id);
@@ -56,6 +56,7 @@ async function apiValidate(email, license){
     const text = await r.text().catch(()=> "");
     throw new Error(`HTTP ${r.status}${text ? ` - ${text}` : ""}`);
   }
+  // Espera JSON: { valid:boolean, expiresAt?:string, error?:string }
   return r.json();
 }
 async function apiIssue(payload){
@@ -85,14 +86,14 @@ async function emitirLicencia(){
 }
 if (typeof window !== "undefined") window.emitirLicencia = emitirLicencia;
 
-// ====== API TARIFAS (SANITIZADO valorM2) ======
+// ====== API TARIFAS (sanitizado valorM2) ======
 async function apiTariffs(){
   const r = await fetch(TARIFF_URL);
   if(!r.ok) throw new Error(`HTTP ${r.status}`);
   const data = await r.json();
   return (data||[]).map(t=>{
     let v = t.valorM2;
-    if (typeof v === "string") v = v.replace(/[^\d.]/g,""); // limpia S/, comas, espacios
+    if (typeof v === "string") v = v.replace(/[^\d.]/g,""); // S/, comas, espacios
     return {
       distrito: String(t.distrito||"").trim(),
       subzona: String(t.subzona||"").trim(),
@@ -126,7 +127,7 @@ function poblarSubzonas(selDistrito, selZona){
   });
 }
 
-// ====== FACTORES DE VALORIZACIÓN (CONSERVADORES) ======
+// ====== FACTORES DE VALORIZACIÓN (conservadores) ======
 const FACT = {
   area:  { dpto: 0.25, casa: 0.35, terr: 0.80 },
   antig: { premiumNuevo: 0.02, depAnual: 0.006, depMax: 0.12 },
@@ -193,7 +194,7 @@ function mostrarError(msg){
 }
 function limpiarResultados(){ ["valMin","valMed","valMax"].forEach(id=> { const el=$(id); if(el) el.textContent="-"; }); }
 
-// ====== CÁLCULO PRINCIPAL (SOLO VALORIZACIÓN) ======
+// ====== CÁLCULO PRINCIPAL (valorización) ======
 async function calcular(){
   try{
     limpiarResultados();
@@ -260,20 +261,22 @@ async function calcular(){
   }
 }
 
-// ====== INICIALIZACIÓN (TARIFAS, LICENCIAS Y LISTENERS) ======
+// ====== INICIALIZACIÓN (tarifas, licencias, listeners) ======
 document.addEventListener("DOMContentLoaded", async ()=>{
-  // Cargar TARIFAS para valorización
+  // Cargar TARIFAS y poblar selects
   try{
     TARIFAS = await apiTariffs();
     const distritoSel = $("distrito");
     const zonaSel = $("zona");
-    poblarDistritos(distritoSel);
-    distritoSel.addEventListener("change", ()=> poblarSubzonas(distritoSel, zonaSel));
+    if (distritoSel && zonaSel){
+      poblarDistritos(distritoSel);
+      distritoSel.addEventListener("change", ()=> poblarSubzonas(distritoSel, zonaSel));
+    }
   }catch(err){
     console.error("Error cargando tarifas:", err);
   }
 
-  // Validación de licencia
+  // Validación de licencia (no borra inputs)
   const licenseForm = document.getElementById("license-form");
   if (licenseForm){
     licenseForm.addEventListener("submit", async (ev)=>{
@@ -323,6 +326,8 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   const form = $("calc");
   if (form) form.addEventListener("submit", (e)=>{ e.preventDefault(); calcular(); });
 });
+
+
 
 
 
