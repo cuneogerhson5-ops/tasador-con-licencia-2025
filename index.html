@@ -4,14 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tasador Inmobiliario Pro</title>
-  <link rel="stylesheet" href="style.css">
+  <style>
+    .hidden { display: none; }
+    .status.ok { color: green; }
+    .status.error { color: red; }
+    .card { border: 1px solid #ccc; padding: 1em; margin: 1em 0; }
+    .form-grid { display: grid; gap: 0.5em; grid-template-columns: 1fr 1fr; }
+    .btn { padding: 0.5em 1em; cursor: pointer; }
+    .btn.primary { background: #3498db; color: #fff; border: none; }
+    .btn.success { background: #2ecc71; color: #fff; border: none; }
+    .result { margin-top: 0.5em; font-weight: bold; }
+  </style>
 </head>
 <body>
-  <header class="app-header">
-    <h1>Tasador Inmobiliario Pro</h1>
-  </header>
+  <section id="gate" class="card">
+    <h1>Ingreso</h1>
+    <label>Clave de acceso: <input type="password" id="clave"></label>
+    <button class="btn primary" id="btnLogin">Entrar</button>
+    <div id="gateMsg" class="status"></div>
+  </section>
 
-  <main class="container">
+  <main id="app-section" class="hidden">
     <section class="card">
       <h2>Validación de licencia</h2>
       <form id="license-form" class="form-grid">
@@ -45,12 +58,13 @@
         <label>Monto (S/)<input type="number" id="amount" min="1" step="0.01" required></label>
         <label>Número de operación<input type="text" id="operationNumber" required></label>
         <label>Notas<textarea id="notes" rows="2"></textarea></label>
-        <button class="btn success" type="submit">Emitir licencia</button>
+        <button class="btn success" type="button" id="emitir-btn">Emitir licencia</button>
       </form>
       <div id="purchase-status" class="status"></div>
+      <pre id="emitir-out"></pre>
     </section>
 
-    <section id="app-section" class="card hidden">
+    <section class="card">
       <h2>Tasación</h2>
 
       <h3>Departamento</h3>
@@ -61,24 +75,11 @@
         <label>Subzona
           <select id="depto-subzona" required disabled></select>
         </label>
-
-        <label>Área construida (m²)
-          <input type="number" id="depto-area-techada" min="0" step="0.01" required>
-        </label>
-        <label>Área libre (m²)
-          <input type="number" id="depto-area-libre" min="0" step="0.01" required>
-        </label>
-
-        <label>Antigüedad (años)
-          <input type="number" id="depto-antiguedad" min="0" step="1" required>
-        </label>
-        <label>Piso
-          <input type="number" id="depto-piso" min="1" step="1" required>
-        </label>
-
-        <label>Dormitorios
-          <input type="number" id="depto-dormitorios" min="1" step="1" required>
-        </label>
+        <label>Área techada (m²)<input type="number" id="depto-area-techada" min="0" step="0.01" required></label>
+        <label>Área libre (m²)<input type="number" id="depto-area-libre" min="0" step="0.01" required></label>
+        <label>Antigüedad (años)<input type="number" id="depto-antiguedad" min="0" step="1" required></label>
+        <label>Piso<input type="number" id="depto-piso" min="1" step="1" required></label>
+        <label>Dormitorios<input type="number" id="depto-dormitorios" min="1" step="1" required></label>
         <label>Condición
           <select id="depto-condicion" required>
             <option value="a estrenar">A estrenar</option>
@@ -87,7 +88,6 @@
             <option value="para remodelar">Para remodelar</option>
           </select>
         </label>
-
         <label>Ascensor
           <select id="depto-ascensor" required>
             <option value="si">Sí</option>
@@ -96,18 +96,22 @@
         </label>
         <label>Eficiencia energética
           <select id="depto-eficiencia" required>
-            <option value="C">C</option>
-            <option value="B">B</option>
             <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
             <option value="D">D</option>
             <option value="E">E</option>
             <option value="F">F</option>
           </select>
         </label>
-
-        <button class="btn primary" type="submit">Calcular</button>
+        <button class="btn primary" type="button" id="calc-depto">Calcular</button>
       </form>
-      <div id="depto-result" class="result"></div>
+      <div id="depto-result" class="result">
+        <div id="summary"></div>
+        <div>Valor mínimo: <span id="valMin">-</span></div>
+        <div>Valor medio: <span id="valMed">-</span></div>
+        <div>Valor máximo: <span id="valMax">-</span></div>
+      </div>
 
       <h3>Casa</h3>
       <form id="form-casa" class="form-grid">
@@ -117,21 +121,10 @@
         <label>Subzona
           <select id="casa-subzona" required disabled></select>
         </label>
-
-        <label>Área construida (m²)
-          <input type="number" id="casa-area-techada" min="0" step="0.01" required>
-        </label>
-        <label>Área libre (m²)
-          <input type="number" id="casa-area-libre" min="0" step="0.01" required>
-        </label>
-
-        <label>Antigüedad (años)
-          <input type="number" id="casa-antiguedad" min="0" step="1" required>
-        </label>
-        <label>Dormitorios
-          <input type="number" id="casa-dormitorios" min="1" step="1" required>
-        </label>
-
+        <label>Área techada (m²)<input type="number" id="casa-area-techada" min="0" step="0.01" required></label>
+        <label>Área libre (m²)<input type="number" id="casa-area-libre" min="0" step="0.01" required></label>
+        <label>Antigüedad (años)<input type="number" id="casa-antiguedad" min="0" step="1" required></label>
+        <label>Dormitorios<input type="number" id="casa-dormitorios" min="1" step="1" required></label>
         <label>Condición
           <select id="casa-condicion" required>
             <option value="a estrenar">A estrenar</option>
@@ -142,18 +135,22 @@
         </label>
         <label>Eficiencia energética
           <select id="casa-eficiencia" required>
-            <option value="C">C</option>
-            <option value="B">B</option>
             <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
             <option value="D">D</option>
             <option value="E">E</option>
             <option value="F">F</option>
           </select>
         </label>
-
-        <button class="btn primary" type="submit">Calcular</button>
+        <button class="btn primary" type="button" id="calc-casa">Calcular</button>
       </form>
-      <div id="casa-result" class="result"></div>
+      <div id="casa-result" class="result">
+        <div id="summary-casa"></div>
+        <div>Valor mínimo: <span id="valMin-casa">-</span></div>
+        <div>Valor medio: <span id="valMed-casa">-</span></div>
+        <div>Valor máximo: <span id="valMax-casa">-</span></div>
+      </div>
 
       <h3>Terreno</h3>
       <form id="form-terreno" class="form-grid">
@@ -163,34 +160,206 @@
         <label>Subzona
           <select id="terreno-subzona" required disabled></select>
         </label>
-        <label>Antigüedad (años)
-          <input type="number" id="terreno-antiguedad" min="0" step="1" value="0" required>
-        </label>
-        <label>Área del terreno (m²)
-          <input type="number" id="terreno-area" min="0" step="0.01" required>
-        </label>
-        <button class="btn primary" type="submit">Calcular</button>
+        <label>Antigüedad (años)<input type="number" id="terreno-antiguedad" min="0" step="1" value="0" required></label>
+        <label>Área (m²)<input type="number" id="terreno-area" min="0" step="0.01" required></label>
+        <button class="btn primary" type="button" id="calc-terreno">Calcular</button>
       </form>
-      <div id="terreno-result" class="result"></div>
+      <div id="terreno-result" class="result">
+        <div id="summary-terreno"></div>
+        <div>Valor mínimo: <span id="valMin-terreno">-</span></div>
+        <div>Valor medio: <span id="valMed-terreno">-</span></div>
+        <div>Valor máximo: <span id="valMax-terreno">-</span></div>
+      </div>
     </section>
 
-    <section class="card">
-      <h2>Prueba rápida issue</h2>
-      <button id="emitir-btn" class="btn primary">Emitir prueba (S/100)</button>
-      <pre id="emitir-out"></pre>
-    </section>
+    <button class="btn primary" id="logout">Cerrar sesión</button>
   </main>
 
-  <script src="script.js"></script>
   <script>
-    document.getElementById('emitir-btn').onclick = async () => {
-      if (!window.emitirLicencia) return alert('Función no cargada');
-      const res = await window.emitirLicencia();
-      document.getElementById('emitir-out').textContent = JSON.stringify(res, null, 2);
-    };
+    const CLAVE_GLOBAL = "12345";
+    const gate = document.getElementById('gate');
+    const appSection = document.getElementById('app-section');
+    const gateMsg = document.getElementById('gateMsg');
+    document.getElementById('btnLogin').addEventListener('click', () => {
+      if (document.getElementById('clave').value === CLAVE_GLOBAL) {
+        gate.style.display = 'none';
+        appSection.classList.remove('hidden');
+        gateMsg.textContent = '';
+        cargarTarifas();
+      } else {
+        gateMsg.textContent = 'Clave incorrecta 🚫';
+      }
+    });
+    document.getElementById('logout').addEventListener('click', () => {
+      document.getElementById('clave').value = '';
+      gate.style.display = 'block';
+      appSection.classList.add('hidden');
+    });
+
+    const BASE_URL     = 'https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec';
+    const TARIFF_URL   = `${BASE_URL}?action=tariffs`;
+    const VALIDATE_URL = `${BASE_URL}?action=validate`;
+    const ISSUE_URL    = `${BASE_URL}?action=issue`;
+    const $ = id => document.getElementById(id);
+    const norm = s => String(s||'').trim().toLowerCase();
+    const unique = arr => [...new Set(arr)];
+    window.TARIFAS = [];
+
+    async function apiTariffs(){
+      const r = await fetch(TARIFF_URL);
+      if(!r.ok) throw new Error(r.status);
+      return (await r.json()).map(t=>({
+        distrito: t.distrito.trim(),
+        subzona:  t.subzona.trim(),
+        valorM2:  Number(String(t.valorM2).replace(/[^\d.]/g,''))
+      }));
+    }
+
+    async function apiValidate(email,lic){
+      const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(lic)}`);
+      if(!r.ok) throw new Error(r.status);
+      return r.json();
+    }
+
+    async function apiIssue(payload){
+      const r = await fetch(ISSUE_URL,{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+      });
+      if(!r.ok) throw new Error(r.status);
+      return r.json();
+    }
+
+    document.getElementById('license-form').addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const email = $('email').value.trim();
+      const lic   = $('licenseId').value.trim();
+      if(!email||!lic){ $('license-status').textContent = 'Completa email y licencia'; return; }
+      $('license-status').textContent = 'Validando...';
+      try {
+        const res = await apiValidate(email,lic);
+        if(res.valid){
+          $('license-status').textContent = `Licencia válida. Vence: ${res.expiresAt}`;
+          $('license-status').classList.add('ok');
+        } else {
+          $('license-status').textContent = res.error || 'Licencia inválida';
+          $('license-status').classList.add('error');
+        }
+      } catch(e) {
+        $('license-status').textContent = `Error: ${e.message}`;
+        $('license-status').classList.add('error');
+      }
+    });
+
+    document.getElementById('emitir-btn').addEventListener('click', async () => {
+      $('purchase-status').textContent = 'Emitiendo...';
+      try {
+        const payload = {
+          buyerName:$('buyerName').value,
+          buyerEmail:$('buyerEmail').value,
+          buyerDocType:$('buyerDocType').value,
+          buyerDocId:$('buyerDocId').value,
+          payMethod:$('payMethod').value,
+          amount:$('amount').value,
+          voucherUrl:$('operationNumber').value,
+          notes:$('notes').value
+        };
+        const res = await apiIssue(payload);
+        $('emitir-out').textContent = JSON.stringify(res,null,2);
+        $('purchase-status').textContent = res.issued
+          ? `Licencia: ${res.licenseId}` : res.error || 'No emitida';
+        $('purchase-status').classList.toggle('ok',res.issued);
+        $('purchase-status').classList.toggle('error',!res.issued);
+      } catch(e) {
+        $('purchase-status').textContent = `Error: ${e.message}`;
+        $('purchase-status').classList.add('error');
+      }
+    });
+
+    async function cargarTarifas(){
+      try {
+        window.TARIFAS = await apiTariffs();
+        ['depto','casa','terreno'].forEach(pref => {
+          const ds = $(`${pref}-distrito`), sz = $(`${pref}-subzona`);
+          ds.innerHTML = '<option value="">Selecciona distrito</option>';
+          unique(window.TARIFAS.map(t=>t.distrito)).sort()
+            .forEach(d=> ds.appendChild(new Option(d,d)));
+          ds.onchange = () => {
+            sz.disabled = false;
+            sz.innerHTML = '<option value="">Selecciona subzona</option>';
+            unique(window.TARIFAS.filter(t=>norm(t.distrito)===norm(ds.value)).map(t=>t.subzona))
+              .sort().forEach(z=> sz.appendChild(new Option(z,z)));
+          };
+        });
+      } catch(e) {
+        console.error('Error cargando tarifas',e);
+      }
+    }
+
+    function mostrarResultado(pref, base, v){
+      const FX=1, r = pref==='depto'?0.04: pref==='casa'?0.04:0.06;
+      const vmin = v*(1-r)*FX, vmed=v*FX, vmax=v*(1+r)*FX;
+      const suf = pref==='depto'? '' : '-' + pref;
+      $(`summary${suf}`).textContent = `Estimación ${pref} en ${$(pref+'-subzona').value}, ${$(pref+'-distrito').value}`;
+      $(`valMin${suf}`).textContent = `S/ ${Math.round(vmin).toLocaleString('es-PE')}`;
+      $(`valMed${suf}`).textContent = `S/ ${Math.round(vmed).toLocaleString('es-PE')}`;
+      $(`valMax${suf}`).textContent = `S/ ${Math.round(vmax).toLocaleString('es-PE')}`;
+    }
+
+    async function calcular(pref){
+      try {
+        const dist = $(`${pref}-distrito`).value;
+        const subz = $(`${pref}-subzona`).value;
+        if(!dist||!subz) throw new Error('Seleccione distrito/subzona');
+        const vm2 = window.TARIFAS.find(t=>norm(t.distrito)===norm(dist)&&norm(t.subzona)===norm(subz))?.valorM2;
+        if(!vm2) throw new Error('vm2 no encontrado');
+        let base,v;
+        if(pref==='depto'){
+          const at=parseFloat($('depto-area-techada').value)||0;
+          const al=parseFloat($('depto-area-libre').value)||0;
+          const piso=parseInt($('depto-piso').value)||0;
+          const dorms=parseInt($('depto-dormitorios').value)||0;
+          const asc=$('depto-ascensor').value;
+          const antig=parseInt($('depto-antiguedad').value)||0;
+          const cond=$('depto-condicion').value;
+          const ef=$('depto-eficiencia').value;
+          base = vm2 * (at + al*0.25);
+          v = ajustePisoAsc(base,piso,asc);
+          v = aplicarDorms(v,dorms);
+          v = aplicarAntig(v,antig);
+          v = aplicarCond(v,cond);
+          v = aplicarEfic(v,ef);
+        } else if(pref==='casa'){
+          const at=parseFloat($('casa-area-techada').value)||0;
+          const al=parseFloat($('casa-area-libre').value)||0;
+          const dorms=parseInt($('casa-dormitorios').value)||0;
+          const antig=parseInt($('casa-antiguedad').value)||0;
+          const cond=$('casa-condicion').value;
+          const ef=$('casa-eficiencia').value;
+          base = vm2 * (at + al*0.35);
+          v = aplicarDorms(base,dorms);
+          v = aplicarAntig(v,antig);
+          v = aplicarCond(v,cond);
+          v = aplicarEfic(v,ef);
+        } else {
+          const ar=parseFloat($('terreno-area').value)||0;
+          const antig=parseInt($('terreno-antiguedad').value)||0;
+          base = vm2 * (ar * 0.80);
+          v = aplicarAntig(base,antig);
+        }
+        v = capTotal(base,v);
+        mostrarResultado(pref,base,v);
+      } catch(e) {
+        alert(e.message);
+      }
+    }
+
+    document.getElementById('calc-depto').addEventListener('click',()=>calcular('depto'));
+    document.getElementById('calc-casa').addEventListener('click',()=>calcular('casa'));
+    document.getElementById('calc-terreno').addEventListener('click',()=>calcular('terreno'));
   </script>
 </body>
 </html>
+
 
 
 
