@@ -23,7 +23,23 @@ function setStatus(id, msg, ok=false){
   }
 }
 
-// ========== VM2 (del primer script) ==========
+// ========== CARGA TARIFAS ==========
+async function apiTariffs(){ 
+  const r = await fetch(TARIFF_URL); 
+  if(!r.ok) throw new Error(`HTTP ${r.status}`); 
+  const data = await r.json();
+  // Normaliza valorM2 a número
+  return (data||[]).map(t=>{
+    let v = t.valorM2;
+    if (typeof v === "string") v = v.replace(/[^\d.]/g,"");
+    return {
+      distrito: String(t.distrito||"").trim(),
+      subzona: String(t.subzona||"").trim(),
+      valorM2: Number(v)
+    };
+  });
+}
+
 function buscarVM2(d,s){
   const dKey = norm(d), sKey = norm(s);
   const it = TARIFAS.find(t=> norm(t.distrito)===dKey && norm(t.subzona)===sKey);
@@ -50,12 +66,7 @@ function poblarSubzonas(distrito, selectId){
   sel.disabled = sel.options.length<=1;
 }
 
-// ========== API ==========
-async function apiTariffs(){ 
-  const r = await fetch(TARIFF_URL); 
-  if(!r.ok) throw new Error(`HTTP ${r.status}`); 
-  return r.json();
-}
+// ========== API LICENCIAS ==========
 async function apiValidate(email, license){ 
   const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(license)}`); 
   if(!r.ok) throw new Error(`HTTP ${r.status}`); 
@@ -85,14 +96,13 @@ async function emitirLicencia(){
 }
 if (typeof window !== "undefined") window.emitirLicencia = emitirLicencia;
 
-// ========== FACTORES RE-CALIBRADOS ==========
+// ========== FACTORES ==========
 const FACTORES_TASACION = {
   antiguedad: { premiumNuevo: 0.03, depAnual: 0.007, depMax: 0.12 },
   dormitorios: { base: 2, incPorDorm: 0.03, incMax: 0.06, decPorDef: 0.04, decMax: 0.08 },
-  banos: { base: 2, incPorBano: 0.02, incMax: 0.04, decPorDef: 0.05, decMax: 0.10 },
   areaLibre: { departamento: 0.25, casa: 0.40, terreno: 0.90 },
   eficienciaEnergetica: { A:1.03, B:1.02, C:1.00, D:0.98, E:0.96, F:0.94 },
-  estadoConservacion: { excelente:1.04, bueno:1.00, regular:0.94, remodelar:0.88 }
+  estadoConservacion: { "a estrenar":1.06, "bueno":1.02, "regular":0.98, "para remodelar":0.94 }
 };
 async function obtenerTipoCambio() { return 3.75; }
 
@@ -113,223 +123,152 @@ function aplicarFactorDormitorios(valor, dorms, tipo){
     return valor * (1 - dec);
   }
 }
-function aplicarFactorBanos(valor, banos, tipo){
-  if (tipo.includes("terreno")) return valor;
-  const base = FACTORES_TASACION.banos.base;
-  if (banos === base) return valor;
-  if (banos > base){
-    const inc = Math.min((banos - base) * FACTORES_TASACION.banos.incPorBano, FACTORES_TASACION.banos.incMax);
-    return valor * (1 + inc);
-  } else {
-    const dec = Math.min((base - banos) * FACTORES_TASACION.banos.decPorDef, FACTORES_TASACION.banos.decMax);
-    return valor * (1 - dec);
-  }
-}
-function aplicarFactorPiso(valor, piso, tieneAscensor, tipo){
-  if (!tipo.includes("departamento")) return valor;
-  let delta = 0;
-  if (!tieneAscensor && piso >= 7) delta = -0.10;
-  else if (!tieneAscensor && piso >= 4) delta = -0.07;
-  else if (tieneAscensor && piso >= 9) delta = -0.03;
-  else if (tieneAscensor && piso <= 2) delta = +0.02;
-  return valor * (1 + delta);
-}
 function aplicarFactorEficienciaEnergetica(valor, cal){
   const f = FACTORES_TASACION.eficienciaEnergetica[cal] ?? 1.00;
   return valor * f;
 }
-function aplicarFactorEstadoConservacion(valor, estado){
-  const f = FACTORES_TASACION.estadoConservacion[estado] ?? 1.00;
+function aplicarFactorCondicion(valor, condicion){
+  const f = FACTORES_TASACION.estadoConservacion[norm(condicion)] ?? 1.00;
   return valor * f;
 }
-function limitarAjusteTotal(valorBaseAntes, valorDespues){
-  const ratio = valorDespues / valorBaseAntes;
-  const maxUp = 1.18, maxDn = 0.82;
-  const clamped = Math.min(Math.max(ratio, maxDn), maxUp);
-  return valorBaseAntes * clamped;
-}
-function rangoPorTipo(datos){
-  if (datos.tipo.includes("terreno")) return 0.08;
-  return 0.05;
+function ajustarRango(tipo){
+  return tipo.includes("terreno") ? 0.08 : 0.05;
 }
 
-// ========== VALIDACIONES Y UI ==========
-function mostrarError(mensaje) {
-  const summary = document.getElementById("summary");
-  if (summary){
-    summary.textContent = `Error: ${mensaje}`;
-    summary.style.color = '#e74c3c';
-  } else {
-    alert(mensaje);
-  }
-}
-function limpiarResultados() {
-  ['valMin', 'valMed', 'valMax'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = '-';
-  });
-}
+// ========== ÁREAS PONDERADAS ==========
+function areaDepto(at, al){ return at + (al * FACTORES_TASACION.areaLibre.departamento); }
+function areaCasa(at, al){ return at + (al * FACTORES_TASACION.areaLibre.casa); }
+function areaTerreno(a){ return a * FACTORES_TASACION.areaLibre.terreno; }
 
-// ========== CALCULADORAS SEPARADAS ==========
-function calcAreaPonderadaDepartamento(at, al){
-  return at + (al * FACTORES_TASACION.areaLibre.departamento);
-}
-function calcAreaPonderadaCasa(at, al, atTerr){
-  return at + (al * FACTORES_TASACION.areaLibre.casa) + (atTerr * 0.20);
-}
-function calcAreaPonderadaTerreno(aTerr){
-  return aTerr * FACTORES_TASACION.areaLibre.terreno;
-}
-
-// ========== TASACIÓN: DEPARTAMENTO ==========
-function calcularDepartamento() {
+// ========== CALCULAR: DEPARTAMENTO ==========
+function calcularDepartamento(){
   const distrito = $("depto-distrito").value;
   const subzona = $("depto-subzona").value;
-  const piso = Number($("depto-piso").value || 0);
-  const ascensor = $("depto-ascensor").value;
+  const at = Number($("depto-area-techada").value||0);
+  const al = Number($("depto-area-libre").value||0);
+  const antig = Number($("depto-antiguedad").value||0);
+  const piso = Number($("depto-piso").value||0);
+  const dorms = Number($("depto-dormitorios").value||0);
   const condicion = $("depto-condicion").value;
-  const dormitorios = Number($("depto-dormitorios").value || 0);
-  const antiguedad = Number($("depto-antiguedad").value || 0);
-  const at = Number($("depto-area-techada").value || 0);
-  const al = Number($("depto-area-libre").value || 0);
+  const asc = $("depto-ascensor").value; // si/no
+  const efic = $("depto-eficiencia").value; // A..F
 
   const out = $("depto-result");
-
   const vm2 = buscarVM2(distrito, subzona);
-  if (!distrito || !subzona || !isFinite(vm2)) {
-    out.textContent = "Selecciona distrito/subzona válidos";
-    return;
-  }
+  if(!isFinite(vm2)){ out.textContent="No se encontró VM2 para la subzona; verifica TARIFAS."; return; }
 
-  const areaPonderada = calcAreaPonderadaDepartamento(at, al);
-  let valorBase = vm2 * areaPonderada;
-  const antes = valorBase;
+  const ap = areaDepto(at, al);
+  let base = vm2 * ap;
 
-  // Condición (igual esquema que tu primer script)
-  const c = norm(condicion);
-  let fCond = 1;
-  if (c==="a estrenar") fCond=1.06;
-  else if (c==="bueno") fCond=1.02;
-  else if (c==="regular") fCond=0.98;
-  else if (c==="para remodelar") fCond=0.94;
+  // Ajustes calibrados (manteniendo tu lógica simple: piso/ascensor neto, dormitorios, antigüedad, condición, eficiencia)
+  // Piso/ascensor neto
+  let deltaPiso = 0;
+  const tieneAsc = norm(asc)==="si";
+  if (!tieneAsc && piso >= 7) deltaPiso = -0.10;
+  else if (!tieneAsc && piso >= 4) deltaPiso = -0.07;
+  else if (tieneAsc && piso >= 9) deltaPiso = -0.03;
+  else if (tieneAsc && piso <= 2) deltaPiso = +0.02;
 
-  // Factores calibrados
-  valorBase = aplicarFactorAntiguedad(valorBase, antiguedad);
-  valorBase = aplicarFactorDormitorios(valorBase, dormitorios, "departamento");
-  valorBase = aplicarFactorPiso(valorBase, piso, norm(ascensor)==="si", "departamento");
-  valorBase = valorBase * fCond;
+  base = base * (1 + deltaPiso);
+  base = aplicarFactorDormitorios(base, dorms, "departamento");
+  base = aplicarFactorAntiguedad(base, antig);
+  base = aplicarFactorCondicion(base, condicion);
+  base = aplicarFactorEficienciaEnergetica(base, efic);
 
-  valorBase = limitarAjusteTotal(antes, valorBase);
-
-  const medio = valorBase;
-  const r = 0.05;
-  const minimo = medio * (1 - r);
-  const alto = medio * (1 + r);
+  const r = ajustarRango("departamento");
+  const min = base * (1 - r);
+  const max = base * (1 + r);
 
   out.innerHTML = `
     <div class="grid">
-      <div class="pill"><h4>Área ponderada</h4><div>${areaPonderada.toFixed(1)} m²</div></div>
+      <div class="pill"><h4>Área ponderada</h4><div>${ap.toFixed(1)} m²</div></div>
       <div class="pill"><h4>Valor m²</h4><div>S/${vm2.toLocaleString()}</div></div>
-      <div class="pill"><h4>Ajuste total</h4><div>${(medio/antes).toFixed(3)}x</div></div>
+      <div class="pill"><h4>Ajuste piso/ascensor</h4><div>${(1+deltaPiso).toFixed(3)}x</div></div>
     </div>
     <div class="grid" style="margin-top:8px">
-      <div class="pill"><h4>Valor mínimo</h4><div>S/${Math.round(minimo).toLocaleString()}</div></div>
-      <div class="pill"><h4>Valor medio</h4><div>S/${Math.round(medio).toLocaleString()}</div></div>
-      <div class="pill"><h4>Valor alto</h4><div>S/${Math.round(alto).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor mínimo</h4><div>S/${Math.round(min).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor medio</h4><div>S/${Math.round(base).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor alto</h4><div>S/${Math.round(max).toLocaleString()}</div></div>
     </div>
   `;
 }
 
-// ========== TASACIÓN: CASA ==========
-function calcularCasa() {
+// ========== CALCULAR: CASA ==========
+function calcularCasa(){
   const distrito = $("casa-distrito").value;
   const subzona = $("casa-subzona").value;
+  const at = Number($("casa-area-techada").value||0);
+  const al = Number($("casa-area-libre").value||0);
+  const antig = Number($("casa-antiguedad").value||0);
+  const dorms = Number($("casa-dormitorios").value||0);
   const condicion = $("casa-condicion").value;
-  const dormitorios = Number($("casa-dormitorios").value || 0);
-  const antiguedad = Number($("casa-antiguedad").value || 0);
-  const at = Number($("casa-area-techada").value || 0);
-  const al = Number($("casa-area-libre").value || 0);
+  const efic = $("casa-eficiencia").value;
 
   const out = $("casa-result");
-
   const vm2 = buscarVM2(distrito, subzona);
-  if (!distrito || !subzona || !isFinite(vm2)) {
-    out.textContent = "Selecciona distrito/subzona válidos";
-    return;
-  }
+  if(!isFinite(vm2)){ out.textContent="No se encontró VM2 para la subzona; verifica TARIFAS."; return; }
 
-  const areaPonderada = calcAreaPonderadaCasa(at, al, 0);
-  let valorBase = vm2 * areaPonderada;
-  const antes = valorBase;
+  const ap = areaCasa(at, al);
+  let base = vm2 * ap;
 
-  const c = norm(condicion);
-  let fCond = 1;
-  if (c==="a estrenar") fCond=1.06;
-  else if (c==="bueno") fCond=1.02;
-  else if (c==="regular") fCond=0.98;
-  else if (c==="para remodelar") fCond=0.94;
+  base = aplicarFactorDormitorios(base, dorms, "casa");
+  base = aplicarFactorAntiguedad(base, antig);
+  base = aplicarFactorCondicion(base, condicion);
+  base = aplicarFactorEficienciaEnergetica(base, efic);
 
-  valorBase = aplicarFactorAntiguedad(valorBase, antiguedad);
-  valorBase = aplicarFactorDormitorios(valorBase, dormitorios, "casa");
-  valorBase = valorBase * fCond;
-
-  valorBase = limitarAjusteTotal(antes, valorBase);
-
-  const medio = valorBase;
-  const r = 0.05;
-  const minimo = medio * (1 - r);
-  const alto = medio * (1 + r);
+  const r = ajustarRango("casa");
+  const min = base * (1 - r);
+  const max = base * (1 + r);
 
   out.innerHTML = `
     <div class="grid">
-      <div class="pill"><h4>Área ponderada</h4><div>${areaPonderada.toFixed(1)} m²</div></div>
+      <div class="pill"><h4>Área ponderada</h4><div>${ap.toFixed(1)} m²</div></div>
       <div class="pill"><h4>Valor m²</h4><div>S/${vm2.toLocaleString()}</div></div>
-      <div class="pill"><h4>Ajuste total</h4><div>${(medio/antes).toFixed(3)}x</div></div>
+      <div class="pill"><h4>Ajustes</h4><div>Aplicados</div></div>
     </div>
     <div class="grid" style="margin-top:8px">
-      <div class="pill"><h4>Valor mínimo</h4><div>S/${Math.round(minimo).toLocaleString()}</div></div>
-      <div class="pill"><h4>Valor medio</h4><div>S/${Math.round(medio).toLocaleString()}</div></div>
-      <div class="pill"><h4>Valor alto</h4><div>S/${Math.round(alto).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor mínimo</h4><div>S/${Math.round(min).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor medio</h4><div>S/${Math.round(base).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor alto</h4><div>S/${Math.round(max).toLocaleString()}</div></div>
     </div>
   `;
 }
 
-// ========== TASACIÓN: TERRENO ==========
-function calcularTerreno() {
+// ========== CALCULAR: TERRENO ==========
+function calcularTerreno(){
   const distrito = $("terreno-distrito").value;
   const subzona = $("terreno-subzona").value;
-  const area = Number($("terreno-area").value || 0);
+  const antig = Number($("terreno-antiguedad").value||0); // reservado para reportes
+  const aTerr = Number($("terreno-area").value||0);
 
   const out = $("terreno-result");
-
   const vm2 = buscarVM2(distrito, subzona);
-  if (!distrito || !subzona || !isFinite(vm2)) {
-    out.textContent = "Selecciona distrito/subzona válidos";
-    return;
-  }
-  const areaPonderada = calcAreaPonderadaTerreno(area);
-  const medio = vm2 * areaPonderada;
-  const r = 0.08;
-  const minimo = medio * (1 - r);
-  const alto = medio * (1 + r);
+  if(!isFinite(vm2)){ out.textContent="No se encontró VM2 para la subzona; verifica TARIFAS."; return; }
+
+  const ap = areaTerreno(aTerr);
+  const base = vm2 * ap;
+
+  const r = ajustarRango("terreno");
+  const min = base * (1 - r);
+  const max = base * (1 + r);
 
   out.innerHTML = `
     <div class="grid">
-      <div class="pill"><h4>Área ponderada</h4><div>${areaPonderada.toFixed(1)} m²</div></div>
+      <div class="pill"><h4>Área ponderada</h4><div>${ap.toFixed(1)} m²</div></div>
       <div class="pill"><h4>Valor m²</h4><div>S/${vm2.toLocaleString()}</div></div>
-      <div class="pill"><h4>Ajuste total</h4><div>1.000x</div></div>
+      <div class="pill"><h4>Ajustes</h4><div>No aplica</div></div>
     </div>
     <div class="grid" style="margin-top:8px">
-      <div class="pill"><h4>Valor mínimo</h4><div>S/${Math.round(minimo).toLocaleString()}</div></div>
-      <div class="pill"><h4>Valor medio</h4><div>S/${Math.round(medio).toLocaleString()}</div></div>
-      <div class="pill"><h4>Valor alto</h4><div>S/${Math.round(alto).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor mínimo</h4><div>S/${Math.round(min).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor medio</h4><div>S/${Math.round(base).toLocaleString()}</div></div>
+      <div class="pill"><h4>Valor alto</h4><div>S/${Math.round(max).toLocaleString()}</div></div>
     </div>
   `;
 }
 
 // ========== INICIALIZACIÓN ==========
 document.addEventListener("DOMContentLoaded", async ()=>{
-  // Validación de licencia
+  // Validar licencia para mostrar app
   const licenseForm = $("license-form");
   if (licenseForm){
     licenseForm.addEventListener("submit", async (ev)=>{
@@ -342,11 +281,13 @@ document.addEventListener("DOMContentLoaded", async ()=>{
         if(v.valid){
           setStatus("license-status", `Licencia válida. Vence: ${v.expiresAt}`, true);
           $("app-section").classList.remove("hidden");
+
+          // Cargar TARIFAS y poblar selects
           if(TARIFAS.length===0){
             TARIFAS = await apiTariffs();
-            poblarDistritos("depto-distrito");
-            poblarDistritos("casa-distrito");
-            poblarDistritos("terreno-distrito");
+            ["depto-distrito","casa-distrito","terreno-distrito"].forEach(id=>{
+              if ($(id)) poblarDistritos(id);
+            });
             $("depto-distrito").addEventListener("change", e=> poblarSubzonas(e.target.value,"depto-subzona"));
             $("casa-distrito").addEventListener("change", e=> poblarSubzonas(e.target.value,"casa-subzona"));
             $("terreno-distrito").addEventListener("change", e=> poblarSubzonas(e.target.value,"terreno-subzona"));
@@ -387,18 +328,13 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   }
 
   // Formularios de cálculo
-  const formDepto = $("form-depto");
-  const formCasa = $("form-casa");
-  const formTerreno = $("form-terreno");
-
-  if (formDepto) formDepto.addEventListener("submit", (e)=>{ e.preventDefault(); calcularDepartamento(); });
-  if (formCasa) formCasa.addEventListener("submit", (e)=>{ e.preventDefault(); calcularCasa(); });
-  if (formTerreno) formTerreno.addEventListener("submit", (e)=>{ e.preventDefault(); calcularTerreno(); });
-
-  // Botón emitir prueba (ya conectado desde index)
+  if ($("form-depto")) $("form-depto").addEventListener("submit", (e)=>{ e.preventDefault(); calcularDepartamento(); });
+  if ($("form-casa")) $("form-casa").addEventListener("submit", (e)=>{ e.preventDefault(); calcularCasa(); });
+  if ($("form-terreno")) $("form-terreno").addEventListener("submit", (e)=>{ e.preventDefault(); calcularTerreno(); });
 });
 
 console.log("Script completamente cargado");
+
 
 
 
