@@ -289,9 +289,22 @@ document.addEventListener("DOMContentLoaded", async ()=>{
       setStatus("license-status","Validando...");
       try{
         const res = await apiValidate(email, license);
-        if (res.valid){
-          setStatus("license-status", `Licencia válida. Vence: ${res.expiresAt || "N/D"}`, true);
-          document.getElementById("app-section")?.classList.remove("hidden");
+       if (res.valid){
+  setStatus("license-status", `Licencia válida. Vence: ${res.expiresAt || "N/D"}`, true);
+  document.getElementById("app-section")?.classList.remove("hidden");
+  
+  // Forzar carga de tarifas si aún no están
+  if (TARIFAS.length === 0){
+    TARIFAS = await apiTariffs();
+    const distritoSel = $("distrito");
+    const zonaSel = $("zona");
+    if (distritoSel && zonaSel){
+      poblarDistritos(distritoSel);
+      distritoSel.addEventListener("change", ()=> poblarSubzonas(distritoSel, zonaSel));
+    }
+  }
+}
+
         }else{
           setStatus("license-status", res.error || "Licencia inválida");
         }
@@ -325,6 +338,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   const form = $("calc");
   if (form) form.addEventListener("submit", (e)=>{ e.preventDefault(); calcular(); });
 });
+
 
 
 
