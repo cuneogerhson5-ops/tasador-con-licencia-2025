@@ -18,157 +18,127 @@
 </head>
 <body>
 
+  <!-- Ingreso por licencia -->
   <section id="gate" class="card">
     <h1>Ingreso</h1>
-    <label>Licencia<input type="text" id="licenseId"></label>
-    <button class="btn primary" id="btnLogin">Entrar</button>
+    <form id="login-form" class="form-grid">
+      <label>Correo<input type="email" id="email" required></label>
+      <label>Licencia<input type="text" id="licenseId" required></label>
+      <button class="btn primary" type="submit">Entrar</button>
+    </form>
     <div id="gateMsg" class="status"></div>
   </section>
 
+  <!-- App oculta hasta validar licencia -->
   <main id="app-section" class="hidden">
 
     <section class="card">
       <h2>Tasación</h2>
 
-      <h3>Departamento</h3>
-      <form id="form-depto" class="form-grid">
-        <label>Distrito<select id="depto-distrito" required></select></label>
-        <label>Subzona<select id="depto-subzona" required disabled></select></label>
-        <label>Área techada (m²)<input type="number" id="depto-area-techada" min="0" step="0.01" required></label>
-        <label>Área libre (m²)<input type="number" id="depto-area-libre" min="0" step="0.01" required></label>
-        <label>Antigüedad (años)<input type="number" id="depto-antiguedad" min="0" step="1" required></label>
-        <label>Piso<input type="number" id="depto-piso" min="1" step="1" required></label>
-        <label>Dormitorios<input type="number" id="depto-dormitorios" min="1" step="1" required></label>
-        <label>Condición
-          <select id="depto-condicion" required>
-            <option value="a estrenar">A estrenar</option>
-            <option value="bueno">Bueno</option>
-            <option value="regular">Regular</option>
-            <option value="para remodelar">Para remodelar</option>
-          </select>
-        </label>
-        <label>Ascensor
-          <select id="depto-ascensor" required>
-            <option value="si">Sí</option>
-            <option value="no">No</option>
-          </select>
-        </label>
-        <label>Eficiencia energética
-          <select id="depto-eficiencia" required>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
-            <option value="E">E</option>
-            <option value="F">F</option>
-          </select>
-        </label>
-        <button class="btn primary" type="button" id="calc-depto">Calcular</button>
-      </form>
-      <div class="result">
-        <div id="summary-depto"></div>
-        <div>En soles: Mín S/ <span id="valMin-depto">-</span>, Med S/ <span id="valMed-depto">-</span>, Máx S/ <span id="valMax-depto">-</span></div>
-        <div>En USD:  Mín $ <span id="valMinUsd-depto">-</span>, Med $ <span id="valMedUsd-depto">-</span>, Máx $ <span id="valMaxUsd-depto">-</span></div>
+      <!-- Compartido: selects -->
+      <div class="form-grid" style="grid-template-columns:1fr;">
+        <label>Distrito<select id="distrito" required></select></label>
+        <label>Subzona<select id="subzona" required disabled></select></label>
       </div>
 
-      <h3>Casa</h3>
-      <form id="form-casa" class="form-grid">
-        <label>Distrito<select id="casa-distrito" required></select></label>
-        <label>Subzona<select id="casa-subzona" required disabled></select></label>
-        <label>Área techada (m²)<input type="number" id="casa-area-techada" min="0" step="0.01" required></label>
-        <label>Área libre (m²)<input type="number" id="casa-area-libre" min="0" step="0.01" required></label>
-        <label>Antigüedad (años)<input type="number" id="casa-antiguedad" min="0" step="1" required></label>
-        <label>Dormitorios<input type="number" id="casa-dormitorios" min="1" step="1" required></label>
-        <label>Condición
-          <select id="casa-condicion" required>
-            <option value="a estrenar">A estrenar</option>
-            <option value="bueno">Bueno</option>
-            <option value="regular">Regular</option>
-            <option value="para remodelar">Para remodelar</option>
-          </select>
-        </label>
-        <label>Eficiencia energética
-          <select id="casa-eficiencia" required>
-            <option value="A">A</option>
-            <option value="B">B</option>
-            <option value="C">C</option>
-            <option value="D">D</option>
-            <option value="E">E</option>
-            <option value="F">F</option>
-          </select>
-        </label>
-        <button class="btn primary" type="button" id="calc-casa">Calcular</button>
-      </form>
-      <div class="result">
-        <div id="summary-casa"></div>
-        <div>En soles: Mín S/ <span id="valMin-casa">-</span>, Med S/ <span id="valMed-casa">-</span>, Máx S/ <span id="valMax-casa">-</span></div>
-        <div>En USD:  Mín $ <span id="valMinUsd-casa">-</span>, Med $ <span id="valMedUsd-casa">-</span>, Máx $ <span id="valMaxUsd-casa">-</span></div>
+      <!-- Sección de formulario dinámico -->
+      <div class="form-grid">
+        <div>
+          <h3>Departamento</h3>
+          <label>Área techada (m²)<input type="number" id="area-techada" min="0" step="0.01"></label>
+          <label>Área libre (m²)<input type="number" id="area-libre" min="0" step="0.01"></label>
+          <label>Antigüedad (años)<input type="number" id="antiguedad" min="0" step="1"></label>
+          <label>Piso<input type="number" id="piso" min="1" step="1"></label>
+          <label>Dormitorios<input type="number" id="dormitorios" min="1" step="1"></label>
+          <label>Condición
+            <select id="condicion">
+              <option value="a estrenar">A estrenar</option>
+              <option value="bueno">Bueno</option>
+              <option value="regular">Regular</option>
+              <option value="para remodelar">Para remodelar</option>
+            </select>
+          </label>
+          <label>Ascensor
+            <select id="ascensor">
+              <option value="si">Sí</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <label>Eficiencia energética
+            <select id="eficiencia">
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="C">C</option>
+              <option value="D">D</option>
+              <option value="E">E</option>
+              <option value="F">F</option>
+            </select>
+          </label>
+          <button class="btn primary" id="calc-btn">Calcular</button>
+        </div>
       </div>
 
-      <h3>Terreno</h3>
-      <form id="form-terreno" class="form-grid">
-        <label>Distrito<select id="terreno-distrito" required></select></label>
-        <label>Subzona<select id="terreno-subzona" required disabled></select></label>
-        <label>Antigüedad (años)<input type="number" id="terreno-antiguedad" min="0" step="1" value="0" required></label>
-        <label>Área (m²)<input type="number" id="terreno-area" min="0" step="0.01" required></label>
-        <button class="btn primary" type="button" id="calc-terreno">Calcular</button>
-      </form>
+      <!-- Resultados -->
       <div class="result">
-        <div id="summary-terreno"></div>
-        <div>En soles: Mín S/ <span id="valMin-terreno">-</span>, Med S/ <span id="valMed-terreno">-</span>, Máx S/ <span id="valMax-terreno">-</span></div>
-        <div>En USD:  Mín $ <span id="valMinUsd-terreno">-</span>, Med $ <span id="valMedUsd-terreno">-</span>, Máx $ <span id="valMaxUsd-terreno">-</span></div>
+        <div id="summary"></div>
+        <div>En soles: Mín S/ <span id="valMin">-</span>, Med S/ <span id="valMed">-</span>, Máx S/ <span id="valMax">-</span></div>
+        <div>En USD:  Mín $ <span id="valMinUsd">-</span>, Med $ <span id="valMedUsd">-</span>, Máx $ <span id="valMaxUsd">-</span></div>
       </div>
-
     </section>
 
-    <button class="btn primary" id="logout">Cerrar sesión</button>
+    <button class="btn success" id="logout">Cerrar sesión</button>
   </main>
 
   <script>
-    const BASE_URL     = 'https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec';
-    const TARIFF_URL   = `${BASE_URL}?action=tariffs`;
+    // Configuración y utilidades
+    const BASE_URL = 'https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec';
+    const TARIFF_URL = `${BASE_URL}?action=tariffs`;
     const VALIDATE_URL = `${BASE_URL}?action=validate`;
     const $ = id => document.getElementById(id);
     const norm = s => String(s||'').trim().toLowerCase();
     const unique = arr => [...new Set(arr)];
-    window.TARIFAS = [];
+    let TARIFAS = [];
 
+    // APIs
     async function apiTariffs(){
       const r = await fetch(TARIFF_URL);
       if(!r.ok) throw new Error(r.status);
       return (await r.json()).map(t=>({
         distrito: t.distrito.trim(),
-        subzona:  t.subzona.trim(),
-        valorM2:  Number(String(t.valorM2).replace(/[^\d.]/g,''))
+        subzona: t.subzona.trim(),
+        valorM2: Number(String(t.valorM2).replace(/[^\d.]/g,''))
       }));
     }
-    async function apiValidate(lic){
-      const r = await fetch(`${VALIDATE_URL}&license=${encodeURIComponent(lic)}`);
+    async function apiValidate(email,license){
+      const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(license)}`);
       if(!r.ok) throw new Error(r.status);
       return r.json();
     }
     async function obtenerTipoCambio(){ return 3.50; }
 
     function setStatus(id,msg,ok=false){
-      const el=$(id); if(!el) return;
-      el.textContent=msg; el.classList.toggle('ok',ok); el.classList.toggle('error',!ok);
+      const el = $(id);
+      el.textContent = msg;
+      el.classList.toggle('ok', ok);
+      el.classList.toggle('error', !ok);
     }
 
+    // Factores
     const FACT = {
-      area:   { dpto:0.30, casa:0.40, terr:0.75 },
+      area:   { dpto:0.30 },
       antig:  { pN:0.03, dA:0.005, dM:0.10 },
       dorms:  { b:2, i:0.025, iM:0.05, d:0.035, dM:0.07 },
-      efic:   { A:1.05, B:1.03, C:1.00, D:0.98, E:0.96, F:0.93 },
+      efic:   { A:1.05, B:1.03, C:1, D:0.98, E:0.96, F:0.93 },
       cond:   { "a estrenar":1.06, "bueno":1.03, "regular":0.98, "para remodelar":0.90 },
-      pisoAsc:{ sin7:-0.07, sin4:-0.04, con9:-0.015, con2:+0.025 },
+      pisoAsc:{ sin7:-0.07, sin4:-0.04, con9:-0.015, con2:0.025 },
       caps:   { u:0.12, d:0.12 }
     };
+
     function areaDepto(at,al){ return at + al*FACT.area.dpto; }
-    function areaCasa(at,al){ return at + al*FACT.area.casa; }
-    function areaTerreno(a){ return a*FACT.area.terr; }
     function aplicarAntig(v,a){
       if(a<=1) return v*(1+FACT.antig.pN);
-      const dep=Math.min(a*FACT.antig.dA,FACT.antig.dM); return v*(1-dep);
+      const dep = Math.min(a*FACT.antig.dA, FACT.antig.dM);
+      return v*(1-dep);
     }
     function aplicarDorms(v,D){
       const b=FACT.dorms.b;
@@ -179,11 +149,11 @@
     function aplicarCond(v,c){ return v*(FACT.cond[c]||1); }
     function aplicarEfic(v,e){ return v*(FACT.efic[e]||1); }
     function ajustePisoAsc(v,p,asc){
-      let d=0,t=asc==='si';
-      if(!t&&p>=7) d=FACT.pisoAsc.sin7;
-      else if(!t&&p>=4) d=FACT.pisoAsc.sin4;
-      else if(t&&p>=9) d=FACT.pisoAsc.con9;
-      else if(t&&p<=2) d=FACT.pisoAsc.con2;
+      let d=0, tiene = asc==='si';
+      if(!tiene&&p>=7) d=FACT.pisoAsc.sin7;
+      else if(!tiene&&p>=4) d=FACT.pisoAsc.sin4;
+      else if(tiene&&p>=9) d=FACT.pisoAsc.con9;
+      else if(tiene&&p<=2) d=FACT.pisoAsc.con2;
       return v*(1+d);
     }
     function capTotal(b,v){
@@ -193,119 +163,76 @@
     function formatear(v){
       return new Intl.NumberFormat('es-PE',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
     }
-    function limpiarRes(pref){
-      ['valMin','valMed','valMax','valMinUsd','valMedUsd','valMaxUsd']
-        .forEach(suf=> $(suf + '-' + pref).textContent='-');
-      $(`summary-${pref}`).textContent='';
-    }
-    function mostrarErr(pref,m){
-      $(`summary-${pref}`).textContent=`Error: ${m}`;
-      $(`summary-${pref}`).style.color='#e74c3c';
-    }
 
+    // Carga distritos/subzonas
     async function cargarTarifas(){
-      try {
-        window.TARIFAS = await apiTariffs();
-        ['depto','casa','terreno'].forEach(pref=>{
-          const ds = $(`${pref}-distrito`), sz = $(`${pref}-subzona`);
-          ds.innerHTML='<option value="">Selecciona distrito</option>';
-          unique(window.TARIFAS.map(t=>t.distrito)).sort()
-            .forEach(d=> ds.appendChild(new Option(d,d)));
-          ds.onchange = ()=>{
-            sz.disabled=false;
-            sz.innerHTML='<option value="">Selecciona subzona</option>';
-            unique(window.TARIFAS.filter(t=>norm(t.distrito)===norm(ds.value)).map(t=>t.subzona))
-              .sort().forEach(z=> sz.appendChild(new Option(z,z)));
-          };
-        });
-      } catch(e){ console.error(e); }
+      TARIFAS = await apiTariffs();
+      $('distrito').innerHTML = '<option value="">Seleccione distrito</option>';
+      unique(TARIFAS.map(x=>x.distrito)).sort().forEach(d=> $('distrito').append(new Option(d,d)));
+      $('distrito').onchange = ()=>{
+        const d = $('distrito').value;
+        const subs = TARIFAS.filter(x=>norm(x.distrito)===norm(d)).map(x=>x.subzona);
+        $('subzona').innerHTML = '<option value="">Seleccione subzona</option>';
+        unique(subs).sort().forEach(z=> $('subzona').append(new Option(z,z)));
+        $('subzona').disabled = false;
+      };
     }
 
-    async function calcular(pref){
-      try {
-        limpiarRes(pref);
-        const dist=$(`${pref}-distrito`).value, subz=$(`${pref}-subzona`).value;
-        if(!dist||!subz) throw new Error('Seleccione distrito y subzona');
-        const vm2=window.TARIFAS.find(t=>norm(t.distrito)===norm(dist)&&norm(t.subzona)===norm(subz))?.valorM2;
-        if(!vm2) throw new Error('vm2 no encontrado');
-        let base=0,v=0;
-        if(pref==='depto'){
-          const at=parseFloat($('depto-area-techada').value)||0;
-          const al=parseFloat($('depto-area-libre').value)||0;
-          const piso=parseInt($('depto-piso').value)||0;
-          const dorms=parseInt($('depto-dormitorios').value)||0;
-          const asc=$('depto-ascensor').value;
-          const cond=$('depto-condicion').value;
-          const ef=$('depto-eficiencia').value;
-          const antig=parseInt($('depto-antiguedad').value)||0;
-          base=vm2*areaDepto(at,al);
-          v=ajustePisoAsc(base,piso,asc);
-          v=aplicarDorms(v,dorms);
-          v=aplicarAntig(v,antig);
-          v=aplicarCond(v,cond);
-          v=aplicarEfic(v,ef);
-        } else if(pref==='casa'){
-          const at=parseFloat($('casa-area-techada').value)||0;
-          const al=parseFloat($('casa-area-libre').value)||0;
-          const dorms=parseInt($('casa-dormitorios').value)||0;
-          const cond=$('casa-condicion').value;
-          const ef=$('casa-eficiencia').value;
-          const antig=parseInt($('casa-antiguedad').value)||0;
-          base=vm2*areaCasa(at,al);
-          v=aplicarDorms(base,dorms);
-          v=aplicarAntig(v,antig);
-          v=aplicarCond(v,cond);
-          v=aplicarEfic(v,ef);
-        } else {
-          const ar=parseFloat($('terreno-area').value)||0;
-          const antig=parseInt($('terreno-antiguedad').value)||0;
-          base=vm2*areaTerreno(ar);
-          v=aplicarAntig(base,antig);
-        }
-        v=capTotal(base,v);
-        const FX=await obtenerTipoCambio();
-        const r=pref==='terreno'?0.06:0.04;
-        const vmin=v*(1-r), vmed=v, vmax=v*(1+r);
-        $(`summary-${pref}`).textContent=`Estimación ${pref} en ${subz}, ${dist}`;
-        $(`summary-${pref}`).style.color='#2c3e50';
-        $(`valMin-${pref}`).textContent=formatear(vmin);
-        $(`valMed-${pref}`).textContent=formatear(vmed);
-        $(`valMax-${pref}`).textContent=formatear(vmax);
-        $(`valMinUsd-${pref}`).textContent=Math.round(vmin/FX).toLocaleString('en-US');
-        $(`valMedUsd-${pref}`).textContent=Math.round(vmed/FX).toLocaleString('en-US');
-        $(`valMaxUsd-${pref}`).textContent=Math.round(vmax/FX).toLocaleString('en-US');
-      } catch(e){
-        mostrarErr(pref,e.message);
-      }
+    // Calcular
+    async function calcular(){
+      const dist = $('distrito').value, subz = $('subzona').value;
+      if(!dist||!subz){ setStatus('gateMsg','Seleccione distrito/subzona',false); return; }
+      const at = parseFloat($('area-techada').value)||0;
+      const al = parseFloat($('area-libre').value)||0;
+      const piso = parseInt($('piso').value)||0;
+      const dorms = parseInt($('dormitorios').value)||0;
+      const asc = $('ascensor').value;
+      const cond = $('condicion').value;
+      const ef = $('eficiencia').value;
+      const antig = parseInt($('antiguedad').value)||0;
+
+      const vm2 = TARIFAS.find(x=>norm(x.distrito)===norm(dist)&&norm(x.subzona)===norm(subz))?.valorM2;
+      let base = vm2 * areaDepto(at,al);
+      let v = ajustePisoAsc(base,piso,asc);
+      v = aplicarDorms(v,dorms);
+      v = aplicarAntig(v,antig);
+      v = aplicarCond(v,cond);
+      v = aplicarEfic(v,ef);
+      v = capTotal(base,v);
+
+      const FX = await obtenerTipoCambio();
+      const r = 0.04;
+      const vmin = v*(1-r), vmed=v, vmax=v*(1+r);
+
+      $('summary').textContent = `Estimación Dept en ${subz}, ${dist}`;
+      setStatus('gateMsg','',true);
+      $('valMin').textContent = formatear(vmin);
+      $('valMed').textContent = formatear(vmed);
+      $('valMax').textContent = formatear(vmax);
+      $('valMinUsd').textContent = Math.round(vmin/FX);
+      $('valMedUsd').textContent = Math.round(vmed/FX);
+      $('valMaxUsd').textContent = Math.round(vmax/FX);
     }
 
-    document.getElementById('btnLogin').addEventListener('click', async ()=>{
-      const lic=$('licenseId').value.trim();
-      if(!lic){ setStatus('gateMsg','Ingrese licencia'); return; }
+    // Eventos
+    document.getElementById('login-form').addEventListener('submit', async ev=>{
+      ev.preventDefault();
       setStatus('gateMsg','Validando...');
-      try {
-        const res=await apiValidate(lic);
-        if(res.valid){
-          setStatus('gateMsg','Licencia válida',true);
-          document.getElementById('gate').style.display='none';
-          document.getElementById('app-section').classList.remove('hidden');
-          cargarTarifas();
-        } else setStatus('gateMsg',res.error||'Licencia inválida');
-      } catch(e){
-        setStatus('gateMsg',`Error:${e.message}`);
-      }
+      const res = await apiValidate($('email').value, $('licenseId').value);
+      if(res.valid){
+        setStatus('gateMsg','Licencia válida',true);
+        $('gate').style.display='none';
+        $('app-section').classList.remove('hidden');
+        cargarTarifas();
+      } else setStatus('gateMsg',res.error||'Licencia inválida',false);
     });
 
-    document.getElementById('logout').addEventListener('click', ()=>{
-      location.reload();
-    });
-
-    document.getElementById('calc-depto').addEventListener('click', ()=>calcular('depto'));
-    document.getElementById('calc-casa').addEventListener('click', ()=>calcular('casa'));
-    document.getElementById('calc-terreno').addEventListener('click', ()=>calcular('terreno'));
+    $('calc-btn').addEventListener('click', calcular);
+    $('logout').addEventListener('click', ()=> location.reload());
   </script>
 </body>
 </html>
+
 
 
 
