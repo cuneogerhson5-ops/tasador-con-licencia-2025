@@ -1,203 +1,202 @@
-<script>
-  // ====== CONFIG ======
-  const BASE_URL     = 'https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec';
-  const TARIFF_URL   = `${BASE_URL}?action=tariffs`;
-  const VALIDATE_URL = `${BASE_URL}?action=validate`;
-  const ISSUE_URL    = `${BASE_URL}?action=issue`;
-  const $ = id => document.getElementById(id);
-  const norm = s => String(s||'').trim().toLowerCase();
-  const unique = arr => [...new Set(arr)];
-  window.TARIFAS = [];
+// URL backend
+const BASE_URL     = 'https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec';
+const TARIFF_URL   = `${BASE_URL}?action=tariffs`;
+const VALIDATE_URL = `${BASE_URL}?action=validate`;
+const $ = id => document.getElementById(id);
+const norm = s => String(s||'').trim().toLowerCase();
+const unique = arr => [...new Set(arr)];
+let DATA = {}; // carga de tarifas
 
-  // ====== API ======
-  async function apiTariffs(){
-    const r = await fetch(TARIFF_URL);
-    if(!r.ok) throw new Error(r.status);
-    return (await r.json()).map(t=>({
-      distrito: t.distrito.trim(),
-      subzona:  t.subzona.trim(),
-      valorM2:  Number(String(t.valorM2).replace(/[^\d.]/g,''))
-    }));
-  }
-  async function apiValidate(email,lic){
-    const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(lic)}`);
-    if(!r.ok) throw new Error(r.status);
-    return r.json();
-  }
-  async function obtenerTipoCambio(){ 
-    return 3.50; 
-  }
+// Factores
+const FACT = {
+  areaLibre:{ departamento:0.25, casa:0.40, terreno:0.90 },
+  antig:{ pN:0.02, dA:0.006, dM:0.12 },
+  dorms:{ b:2, i:0.02, iM:0.04, d:0.03, dM:0.06 },
+  banos:{ b:2, i:0.06, d:0.15, m:0.18 },
+  pisoAsc:{ sin7:0.70, sin4:0.85, con9:1.05, con2:1.10 },
+  efic:{ A:1.10,B:1.05,C:1.00,D:0.95,E:0.90,F:0.85 },
+  estado:{ excelente:1.05, bueno:1.00, regular:0.90, remodelar:0.75 },
+  tipo:{ departamento:1.00, casa:1.12, terreno:0.80 }
+};
 
-  // ====== UTIL ======
-  function setStatus(id,msg,ok=false){
-    const el=$(id);
-    if(!el) return;
-    el.textContent=msg;
-    el.classList.toggle('ok',ok);
-    el.classList.toggle('error',!ok);
-  }
+// APIs
+async function apiTariffs(){
+  const r = await fetch(TARIFF_URL);
+  if(!r.ok) throw Error(r.status);
+  return await r.json();
+}
+async function apiValidate(email,lic){
+  const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(lic)}`);
+  if(!r.ok) throw Error(r.status);
+  return r.json();
+}
+async function obtenerTipoCambio(){ return 3.75; }
 
-  // ====== FACTORES & CÁLCULO ======
-  const FACT = {
-    area:   { dpto:0.30, casa:0.40, terr:0.75 },
-    antig:  { pN:0.03, dA:0.005, dM:0.10 },
-    dorms:  { b:2, i:0.025, iM:0.05, d:0.035, dM:0.07 },
-    efic:   { A:1.05, B:1.03, C:1.00, D:0.98, E:0.96, F:0.93 },
-    cond:   { "a estrenar":1.06, "bueno":1.03, "regular":0.98, "para remodelar":0.90 },
-    pisoAsc:{ sin7:-0.07, sin4:-0.04, con9:-0.015, con2:+0.025 },
-    caps:   { u:0.12, d:0.12 }
-  };
-  function areaDepto(at,al){ return at + al*FACT.area.dpto; }
-  function areaCasa(at,al){ return at + al*FACT.area.casa; }
-  function areaTerreno(a){ return a*FACT.area.terr; }
-  function aplicarAntig(v,a){
-    if(a<=1) return v*(1+FACT.antig.pN);
-    const dep=Math.min(a*FACT.antig.dA,FACT.antig.dM);
-    return v*(1-dep);
+// Mostrar error
+function mostrarError(msg){
+  const s = $('summary');
+  s.textContent = msg;
+  s.style.color = '#e74c3c';
+}
+
+// Limpiar resultados
+function limpiar(){
+  ['valMin','valMed','valMax'].forEach(id=>$(id).textContent='-');
+  $('summary').textContent = 'Resultados';
+  $('summary').style.color='#2c3e50';
+}
+
+// Carga distritos y zonas
+async function initTariffs(){
+  const arr = await apiTariffs();
+  // transforma a { distrito:{ zones:{...} } }
+  arr.forEach(t=>{
+    if(!DATA[t.distrito]) DATA[t.distrito]={ zones:{} };
+    DATA[t.distrito].zones[t.subzona]=t.valorM2;
+  });
+  // llena select distrito
+  const ds = $('distrito');
+  unique(arr.map(x=>x.distrito)).sort().forEach(d=>{
+    ds.append(new Option(d,d));
+  });
+}
+
+// Login con correo+licencia
+document.getElementById('login-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const em = $('email').value.trim(), lic = $('licenseId').value.trim();
+  if(!em||!lic){ mostrarError('Correo y licencia requeridos'); return; }
+  $('gateMsg').textContent = 'Validando...';
+  try {
+    const res = await apiValidate(em,lic);
+    if(res.valid){
+      $('gate').style.display='none';
+      $('app').style.display='block';
+      initTariffs();
+      $('gateMsg').textContent='';
+    } else {
+      mostrarError(res.error||'Licencia inválida');
+    }
+  } catch(err){
+    mostrarError('Error de validación');
   }
-  function aplicarDorms(v,D){
-    const b=FACT.dorms.b;
-    if(D>b) return v*(1+Math.min((D-b)*FACT.dorms.i,FACT.dorms.iM));
-    if(D<b) return v*(1-Math.min((b-D)*FACT.dorms.d,FACT.dorms.dM));
-    return v;
+});
+
+// Logout
+$('logout').onclick = ()=> location.reload();
+
+// Ajustar visibilidad
+$('tipo').addEventListener('change',()=>{
+  const t=$('tipo').value.toLowerCase();
+  ['areaConstruida','areaLibre','areaTerreno','dorms','baths','piso','ascensor']
+    .forEach(id=>document.getElementById(id+'-group').style.display='none');
+  if(t==='departamento'){
+    ['areaConstruida','areaLibre','dorms','baths','piso','ascensor']
+      .forEach(id=>document.getElementById(id+'-group').style.display='block');
+  } else if(t==='casa'){
+    ['areaConstruida','areaLibre','areaTerreno','dorms','baths']
+      .forEach(id=>document.getElementById(id+'-group').style.display='block');
+  } else if(t==='terreno'){
+    ['areaTerreno'].forEach(id=>document.getElementById(id+'-group').style.display='block');
   }
-  function aplicarCond(v,c){ return v*(FACT.cond[c]||1); }
-  function aplicarEfic(v,e){ return v*(FACT.efic[e]||1); }
-  function ajustePisoAsc(v,p,asc){
-    let d=0,t=asc==='si';
-    if(!t&&p>=7) d=FACT.pisoAsc.sin7;
-    else if(!t&&p>=4) d=FACT.pisoAsc.sin4;
-    else if(t&&p>=9) d=FACT.pisoAsc.con9;
-    else if(t&&p<=2) d=FACT.pisoAsc.con2;
-    return v*(1+d);
-  }
-  function capTotal(b,v){
-    const r=v/b, mu=1+FACT.caps.u, md=1-FACT.caps.d;
-    return b*Math.min(Math.max(r,md),mu);
-  }
-  function formatear(v){
-    return new Intl.NumberFormat('es-PE',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
-  }
-  function limpiarRes(){
-    ['valMin','valMed','valMax','valMinUsd','valMedUsd','valMaxUsd'].forEach(id=>{
-      const e=$(id); if(e) e.textContent='-';
+});
+
+// Zonas según distrito
+$('distrito').addEventListener('change',()=>{
+  const d=$('distrito').value, zs=$('zona');
+  zs.innerHTML='<option value="">Selecciona una zona</option>';
+  if(DATA[d]){
+    Object.keys(DATA[d].zones).forEach(z=>{
+      zs.append(new Option(z,z));
     });
   }
-  function mostrarErr(m){
-    $('summary').textContent=`Error: ${m}`;
-    $('summary').style.color='#e74c3c';
-  }
+});
 
-  // ====== POBLAR SELECTS ======
-  async function cargarTarifas(){
-    try {
-      window.TARIFAS = await apiTariffs();
-      ['depto','casa','terreno'].forEach(pref=>{
-        const ds = $(`${pref}-distrito`), sz = $(`${pref}-subzona`);
-        ds.innerHTML = '<option value="">Selecciona distrito</option>';
-        unique(window.TARIFAS.map(t=>t.distrito)).sort()
-          .forEach(d=> ds.appendChild(new Option(d,d)));
-        ds.onchange = () => {
-          sz.disabled = false;
-          sz.innerHTML = '<option value="">Selecciona subzona</option>';
-          unique(window.TARIFAS.filter(t=>norm(t.distrito)===norm(ds.value)).map(t=>t.subzona))
-            .sort().forEach(z=> sz.appendChild(new Option(z,z)));
-        };
-      });
-    } catch(e){
-      console.error('Error tarifas:',e);
+// Cálculo principal
+$('calc').addEventListener('submit',async e=>{
+  e.preventDefault();
+  limpiar();
+  try {
+    const datos = {
+      tipo: $('tipo').value.toLowerCase(),
+      distrito: $('distrito').value,
+      zona: $('zona').value,
+      areaConstruida: parseFloat($('areaConstruida').value)||0,
+      areaLibre: parseFloat($('areaLibre').value)||0,
+      areaTerreno: parseFloat($('areaTerreno').value)||0,
+      dorms: parseInt($('dorms').value)||0,
+      baths: parseInt($('baths').value)||0,
+      piso: parseInt($('piso').value)||0,
+      asc: $('ascensor').value==='con',
+      antig: parseInt($('antiguedad').value)||0,
+      efic: $('eficiencia').value,
+      est: $('estado').value,
+      mon: $('moneda').value
+    };
+    // validaciones básicas
+    if(!datos.tipo||!datos.distrito||!datos.zona){
+      mostrarError('Tipo, distrito y zona obligatorios'); return;
     }
-  }
-
-  // ====== CÁLCULO ======
-  async function calcular(pref){
-    try {
-      limpiarRes();
-      const dist=$(`${pref}-distrito`).value, subz=$(`${pref}-subzona`).value;
-      if(!dist||!subz) throw new Error('Seleccione distrito y subzona');
-      const vm2 = window.TARIFAS.find(t=>norm(t.distrito)===norm(dist)&&norm(t.subzona)===norm(subz))?.valorM2;
-      if(!vm2) throw new Error('vm2 no encontrado');
-      let base=0, v=0;
-
-      if(pref==='depto'){
-        const at=parseFloat($('depto-area-techada').value)||0;
-        const al=parseFloat($('depto-area-libre').value)||0;
-        const piso=parseInt($('depto-piso').value)||0;
-        const dorms=parseInt($('depto-dormitorios').value)||0;
-        const asc=$('depto-ascensor').value;
-        const cond=$('depto-condicion').value;
-        const ef=$('depto-eficiencia').value;
-        const antig=parseInt($('depto-antiguedad').value)||0;
-        base = vm2 * areaDepto(at,al);
-        v = ajustePisoAsc(base,piso,asc);
-        v = aplicarDorms(v,dorms);
-        v = aplicarAntig(v,antig);
-        v = aplicarCond(v,cond);
-        v = aplicarEfic(v,ef);
-
-      } else if(pref==='casa'){
-        const at=parseFloat($('casa-area-techada').value)||0;
-        const al=parseFloat($('casa-area-libre').value)||0;
-        const dorms=parseInt($('casa-dormitorios').value)||0;
-        const cond=$('casa-condicion').value;
-        const ef=$('casa-eficiencia').value;
-        const antig=parseInt($('casa-antiguedad').value)||0;
-        base = vm2 * areaCasa(at,al);
-        v = aplicarDorms(base,dorms);
-        v = aplicarAntig(v,antig);
-        v = aplicarCond(v,cond);
-        v = aplicarEfic(v,ef);
-
-      } else {
-        const ar=parseFloat($('terreno-area').value)||0;
-        const antig=parseInt($('terreno-antiguedad').value)||0;
-        base = vm2 * areaTerreno(ar);
-        v = aplicarAntig(base,antig);
+    const m2 = DATA[datos.distrito].zones[datos.zona];
+    let area = 0;
+    if(datos.tipo==='departamento'){
+      area = datos.areaConstruida + datos.areaLibre*FACT.areaLibre.departamento;
+    } else if(datos.tipo==='casa'){
+      area = datos.areaConstruida + datos.areaLibre*FACT.areaLibre.casa + datos.areaTerreno*0.20;
+    } else {
+      area = datos.areaTerreno*FACT.areaLibre.terreno;
+    }
+    let valor = m2 * area;
+    // antigüedad
+    if(datos.antig<=1) valor *= (1+FACT.antig.pN);
+    else valor *= (1 - Math.min(datos.antig*FACT.antig.dA, FACT.antig.dM));
+    // dormitorios y baños
+    if(datos.tipo!=='terreno'){
+      if(datos.dorms>FACT.dorms.b){
+        valor *= 1+Math.min((datos.dorms-FACT.dorms.b)*FACT.dorms.i, FACT.dorms.iM);
+      } else if(datos.dorms<FACT.dorms.b){
+        valor *= 1-Math.min((FACT.dorms.b-datos.dorms)*FACT.dorms.d, FACT.dorms.dM);
       }
-
-      v = capTotal(base,v);
-      const FX = await obtenerTipoCambio();
-      const r = pref==='terreno'?0.06:0.04;
-      const vmin=v*(1-r), vmed=v, vmax=v*(1+r);
-
-      $('summary').textContent = `Estimación ${pref} en ${subz}, ${dist}`;
-      $('summary').style.color = '#2c3e50';
-      $('valMin').textContent = `S/ ${formatear(vmin)}`;
-      $('valMed').textContent = `S/ ${formatear(vmed)}`;
-      $('valMax').textContent = `S/ ${formatear(vmax)}`;
-
-      $('valMinUsd').textContent = `$ ${Math.round(vmin/FX).toLocaleString('en-US')}`;
-      $('valMedUsd').textContent = `$ ${Math.round(vmed/FX).toLocaleString('en-US')}`;
-      $('valMaxUsd').textContent = `$ ${Math.round(vmax/FX).toLocaleString('en-US')}`;
-
-    } catch(e){
-      mostrarErr(e.message);
-    }
-  }
-
-  // ====== EVENTOS ======
-  document.getElementById('license-form').addEventListener('submit', async ev=>{
-    ev.preventDefault();
-    const email=$('email').value.trim(), lic=$('licenseId').value.trim();
-    if(!email||!lic){ setStatus('license-status','Completa email y licencia'); return; }
-    setStatus('license-status','Validando...');
-    try {
-      const res = await apiValidate(email,lic);
-      if(res.valid){
-        setStatus('license-status',`Licencia válida. Vence: ${res.expiresAt}`,true);
-        cargarTarifas();
-      } else {
-        setStatus('license-status',res.error||'Licencia inválida');
+      if(datos.baths>FACT.banos.b){
+        valor *= 1+Math.min((datos.baths-FACT.banos.b)*FACT.banos.i, FACT.banos.m);
+      } else if(datos.baths<FACT.banos.b){
+        valor *= 1-((FACT.banos.b-datos.baths)*FACT.banos.d);
       }
-    } catch(e){
-      setStatus('license-status',`Error: ${e.message}`);
     }
-  });
+    // piso/ascensor
+    if(datos.tipo==='departamento'){
+      let f=1;
+      if(datos.asc){
+        f *= FACT.pisoAsc.con2;
+        if(datos.piso>=9) f = FACT.pisoAsc.con9;
+      } else {
+        if(datos.piso>=7) f = FACT.pisoAsc.sin7;
+        else if(datos.piso>=4) f = FACT.pisoAsc.sin4;
+      }
+      valor *= f;
+    }
+    // eficiencia y estado
+    valor *= FACT.efic[datos.efic]||1;
+    valor *= FACT.estado[datos.est]||1;
+    // tipo inmueble
+    valor *= FACT.tipo[datos.tipo]||1;
+    // rango ±10%
+    const rango = 0.10;
+    const vMin = valor*(1-rango), vMax = valor*(1+rango);
+    // conversión
+    const FX = await obtenerTipoCambio();
+    const conv = datos.mon==='$'?1/FX:1;
+    const fmt = v=> new Intl.NumberFormat('es-PE',{maximumFractionDigits:0}).format(v);
+    $('summary').textContent = `Estimación ${datos.tipo} en ${datos.zona}, ${datos.distrito}`;
+    $('valMin').textContent = datos.mon+' '+fmt(vMin*conv);
+    $('valMed').textContent = datos.mon+' '+fmt(valor*conv);
+    $('valMax').textContent = datos.mon+' '+fmt(vMax*conv);
+  } catch(err){
+    console.error(err);
+    mostrarError('Error en el cálculo');
+  }
+});
 
-  document.getElementById('calc-depto').addEventListener('click', ()=>calcular('depto'));
-  document.getElementById('calc-casa').addEventListener('click', ()=>calcular('casa'));
-  document.getElementById('calc-terreno').addEventListener('click', ()=>calcular('terreno'));
-</script>
 
 
 
