@@ -37,13 +37,25 @@ const $ = (id) => document.getElementById(id);
 const norm = (s)=> String(s??"").trim().toLowerCase();
 const unique = (arr)=> Array.from(new Set(arr));
 
+function setStatus(id, msg, ok=false){
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = msg || "";
+  el.classList.remove("error","ok");
+  if (msg) el.classList.add(ok ? "ok" : "error");
+}
+
 // ====== ESTADO ======
 let TARIFAS = []; // [{distrito, subzona, valorM2:Number}]
 
-// ====== API LICENCIAS (SE MANTIENEN) ======
+// ====== API LICENCIAS ======
 async function apiValidate(email, license){
-  const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(license)}`);
-  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  const url = `${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(license)}`;
+  const r = await fetch(url, { method: "GET" });
+  if (!r.ok) {
+    const text = await r.text().catch(()=> "");
+    throw new Error(`HTTP ${r.status}${text ? ` - ${text}` : ""}`);
+  }
   return r.json();
 }
 async function apiIssue(payload){
@@ -52,7 +64,10 @@ async function apiIssue(payload){
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify(payload)
   });
-  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  if(!r.ok){
+    const text = await r.text().catch(()=> "");
+    throw new Error(`HTTP ${r.status}${text ? ` - ${text}` : ""}`);
+  }
   return r.json();
 }
 async function emitirLicencia(){
@@ -112,18 +127,17 @@ function poblarSubzonas(selDistrito, selZona){
 }
 
 // ====== FACTORES DE VALORIZACIÓN (CONSERVADORES) ======
-// Ponderaciones más bajas, límites de ajuste y rango estrechos.
 const FACT = {
-  area:  { dpto: 0.25, casa: 0.35, terr: 0.80 },                 // ponderación conservadora
-  antig: { premiumNuevo: 0.02, depAnual: 0.006, depMax: 0.12 },   // tope −12%
-  dorms: { base: 2, inc: 0.02, incMax: 0.04, dec: 0.03, decMax: 0.06 }, // ±6%
-  efic:  { A:1.03, B:1.02, C:1.00, D:0.99, E:0.97, F:0.95 },      // ±3%
-  cond:  { "a estrenar":1.05, "bueno":1.02, "regular":0.97, "para remodelar":0.92 }, // ±8% down
+  area:  { dpto: 0.25, casa: 0.35, terr: 0.80 },
+  antig: { premiumNuevo: 0.02, depAnual: 0.006, depMax: 0.12 },
+  dorms: { base: 2, inc: 0.02, incMax: 0.04, dec: 0.03, decMax: 0.06 },
+  efic:  { A:1.03, B:1.02, C:1.00, D:0.99, E:0.97, F:0.95 },
+  cond:  { "a estrenar":1.05, "bueno":1.02, "regular":0.97, "para remodelar":0.92 },
   pisoAsc: { sin_7mas:-0.08, sin_4a6:-0.05, con_9mas:-0.02, con_1a2:+0.02 },
-  caps: { totalUp: 0.15, totalDn: 0.15 } // CAP combinado ±15%
+  caps: { totalUp: 0.15, totalDn: 0.15 }
 };
 
-async function obtenerTipoCambio(){ return 3.75; } // tipo fijo
+async function obtenerTipoCambio(){ return 3.75; } // fijo
 
 // Áreas ponderadas
 function areaDepto(at, al){ return at + al*FACT.area.dpto; }
@@ -246,7 +260,7 @@ async function calcular(){
   }
 }
 
-// ====== INICIALIZACIÓN (POBLADO SELECTS + LISTENERS) ======
+// ====== INICIALIZACIÓN (TARIFAS, LICENCIAS Y LISTENERS) ======
 document.addEventListener("DOMContentLoaded", async ()=>{
   // Cargar TARIFAS para valorización
   try{
@@ -259,49 +273,57 @@ document.addEventListener("DOMContentLoaded", async ()=>{
     console.error("Error cargando tarifas:", err);
   }
 
-  // Mostrar/ocultar campos según tipo (mantiene tu UX actual)
-  const tipoSel = $("tipo");
-  const pisoGroup = $("piso-group");
-  const ascensorGroup = $("ascensor-group");
-  const dormsGroup = $("dorms-group");
-  const bathsGroup = $("baths-group");
-  const areaLibreGroup = $("areaLibre-group");
-  const areaTerrenoGroup = $("areaTerreno-group");
-  const areaConstruidaGroup = $("areaConstruida-group");
+  // Validación de licencia
+  const licenseForm = document.getElementById("license-form");
+  if (licenseForm){
+    licenseForm.addEventListener("submit", async (ev)=>{
+      ev.preventDefault();
+      const email = (document.getElementById("email")?.value || "").trim();
+      const license = (document.getElementById("licenseId")?.value || "").trim();
+      if (!email || !license){
+        setStatus("license-status","Completa correo y licencia");
+        return;
+      }
+      setStatus("license-status","Validando...");
+      try{
+        const res = await apiValidate(email, license);
+        if (res.valid){
+          setStatus("license-status", `Licencia válida. Vence: ${res.expiresAt || "N/D"}`, true);
+          document.getElementById("app-section")?.classList.remove("hidden");
+        }else{
+          setStatus("license-status", res.error || "Licencia inválida");
+        }
+      }catch(err){
+        console.error("Error validando licencia:", err);
+        setStatus("license-status", `Fallo: ${err.message}`);
+      }
+    });
+  }
 
-  tipoSel.addEventListener("change", () => {
-    const t = tipoSel.value.toLowerCase();
-    if (t.includes("departamento")) {
-      pisoGroup.style.display = "block";
-      ascensorGroup.style.display = "block";
-      dormsGroup.style.display = "block";
-      bathsGroup.style.display = "block";
-      areaLibreGroup.style.display = "block";
-      areaTerrenoGroup.style.display = "none";
-      areaConstruidaGroup.style.display = "block";
-    } else if (t.includes("casa")) {
-      pisoGroup.style.display = "none";
-      ascensorGroup.style.display = "none";
-      dormsGroup.style.display = "block";
-      bathsGroup.style.display = "block";
-      areaLibreGroup.style.display = "block";
-      areaTerrenoGroup.style.display = "block";
-      areaConstruidaGroup.style.display = "block";
-    } else if (t.includes("terreno")) {
-      pisoGroup.style.display = "none";
-      ascensorGroup.style.display = "none";
-      dormsGroup.style.display = "none";
-      bathsGroup.style.display = "none";
-      areaLibreGroup.style.display = "none";
-      areaTerrenoGroup.style.display = "block";
-      areaConstruidaGroup.style.display = "none";
-    }
-  });
+  // Emisión rápida (si existe botón)
+  const emitirBtn = document.getElementById("emitir-btn");
+  if (emitirBtn){
+    emitirBtn.onclick = async ()=>{
+      try{
+        setStatus("purchase-status","Emitiendo...");
+        const res = await emitirLicencia();
+        document.getElementById('emitir-out').textContent = JSON.stringify(res, null, 2);
+        if (res.issued){
+          setStatus("purchase-status", `Licencia emitida: ${res.licenseId}`, true);
+        }else{
+          setStatus("purchase-status", res.error || "No emitida");
+        }
+      }catch(e){
+        setStatus("purchase-status", `Fallo: ${e.message}`);
+      }
+    };
+  }
 
-  // Submit del formulario (conservado)
+  // Submit del formulario de cálculo
   const form = $("calc");
-  form.addEventListener("submit", (e)=>{ e.preventDefault(); calcular(); });
+  if (form) form.addEventListener("submit", (e)=>{ e.preventDefault(); calcular(); });
 });
+
 
 
 
