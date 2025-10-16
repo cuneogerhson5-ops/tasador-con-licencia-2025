@@ -40,11 +40,11 @@ const unique = (arr)=> Array.from(new Set(arr));
 // ====== ESTADO ======
 let TARIFAS = []; // [{distrito, subzona, valorM2:Number}]
 
-// ====== API LICENCIAS (SIN CAMBIOS) ======
-async function apiValidate(email, license){ 
+// ====== API LICENCIAS (SE MANTIENEN) ======
+async function apiValidate(email, license){
   const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(license)}`);
   if(!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json(); 
+  return r.json();
 }
 async function apiIssue(payload){
   const r = await fetch(ISSUE_URL, {
@@ -70,15 +70,14 @@ async function emitirLicencia(){
 }
 if (typeof window !== "undefined") window.emitirLicencia = emitirLicencia;
 
-// ====== API TARIFAS (SOLO PARA VALORIZACIÓN) ======
-async function apiTariffs(){ 
-  const r = await fetch(TARIFF_URL); 
+// ====== API TARIFAS (SANITIZADO valorM2) ======
+async function apiTariffs(){
+  const r = await fetch(TARIFF_URL);
   if(!r.ok) throw new Error(`HTTP ${r.status}`);
   const data = await r.json();
-  // Sanitiza valorM2 a número
   return (data||[]).map(t=>{
     let v = t.valorM2;
-    if (typeof v === "string") v = v.replace(/[^\d.]/g,"");
+    if (typeof v === "string") v = v.replace(/[^\d.]/g,""); // limpia S/, comas, espacios
     return {
       distrito: String(t.distrito||"").trim(),
       subzona: String(t.subzona||"").trim(),
@@ -112,16 +111,26 @@ function poblarSubzonas(selDistrito, selZona){
   });
 }
 
-// ====== FACTORES DE VALORIZACIÓN (CALIBRADOS) ======
+// ====== FACTORES DE VALORIZACIÓN (CONSERVADORES) ======
+// Ponderaciones más bajas, límites de ajuste y rango estrechos.
 const FACT = {
-  antig: { premiumNuevo: 0.03, depAnual: 0.007, depMax: 0.12 },
-  dorms: { base: 2, inc: 0.03, incMax: 0.06, dec: 0.04, decMax: 0.08 },
-  area:  { dpto: 0.25, casa: 0.40, terr: 0.90 },
-  efic:  { A:1.03, B:1.02, C:1.00, D:0.98, E:0.96, F:0.94 },
-  cond:  { "a estrenar":1.06, "bueno":1.02, "regular":0.98, "para remodelar":0.94 }
+  area:  { dpto: 0.25, casa: 0.35, terr: 0.80 },                 // ponderación conservadora
+  antig: { premiumNuevo: 0.02, depAnual: 0.006, depMax: 0.12 },   // tope −12%
+  dorms: { base: 2, inc: 0.02, incMax: 0.04, dec: 0.03, decMax: 0.06 }, // ±6%
+  efic:  { A:1.03, B:1.02, C:1.00, D:0.99, E:0.97, F:0.95 },      // ±3%
+  cond:  { "a estrenar":1.05, "bueno":1.02, "regular":0.97, "para remodelar":0.92 }, // ±8% down
+  pisoAsc: { sin_7mas:-0.08, sin_4a6:-0.05, con_9mas:-0.02, con_1a2:+0.02 },
+  caps: { totalUp: 0.15, totalDn: 0.15 } // CAP combinado ±15%
 };
-async function obtenerTipoCambio(){ return 3.75; }
 
+async function obtenerTipoCambio(){ return 3.75; } // tipo fijo
+
+// Áreas ponderadas
+function areaDepto(at, al){ return at + al*FACT.area.dpto; }
+function areaCasa(at, al, atTerr=0){ return at + al*FACT.area.casa + atTerr*0.15; }
+function areaTerreno(a){ return a*FACT.area.terr; }
+
+// Ajustes
 function aplicarAntig(v, a){
   if (a<=1) return v*(1+FACT.antig.premiumNuevo);
   const dep = Math.min(a*FACT.antig.depAnual, FACT.antig.depMax);
@@ -141,21 +150,25 @@ function aplicarDorms(v, d, tipo){
 }
 function aplicarCond(v, c){ return v*(FACT.cond[norm(c)] ?? 1.00); }
 function aplicarEfic(v, e){ return v*(FACT.efic[e] ?? 1.00); }
-function ajustePisoAsc(v, piso, asc){ // asc: "con"/"sin"
+function ajustePisoAsc(v, piso, asc){
   let d = 0;
-  const t = norm(asc)==="con" || norm(asc)==="si";
-  if (!t && piso>=7) d=-0.10;
-  else if (!t && piso>=4) d=-0.07;
-  else if (t && piso>=9) d=-0.03;
-  else if (t && piso<=2) d=+0.02;
+  const tiene = norm(asc)==="con" || norm(asc)==="si";
+  if (!tiene && piso>=7) d = FACT.pisoAsc.sin_7mas;
+  else if (!tiene && piso>=4) d = FACT.pisoAsc.sin_4a6;
+  else if (tiene && piso>=9) d = FACT.pisoAsc.con_9mas;
+  else if (tiene && piso<=2) d = FACT.pisoAsc.con_1a2;
   return v*(1+d);
 }
-function rango(tipo){ return tipo==="terreno" ? 0.08 : 0.05; }
+function capTotal(baseInicial, valorAjustado){
+  const ratio = valorAjustado/baseInicial;
+  const maxUp = 1 + FACT.caps.totalUp;   // +15%
+  const maxDn = 1 - FACT.caps.totalDn;   // -15%
+  const clamped = Math.min(Math.max(ratio, maxDn), maxUp);
+  return baseInicial*clamped;
+}
+function rangoTipo(tipo){ return tipo==="terreno" ? 0.06 : 0.04; }
 
-function areaDepto(at, al){ return at + al*FACT.area.dpto; }
-function areaCasa(at, al, atTerr=0){ return at + al*FACT.area.casa + atTerr*0.20; }
-function areaTerreno(a){ return a*FACT.area.terr; }
-
+// Helpers UI
 function formatear(v){
   return new Intl.NumberFormat("es-PE",{minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
 }
@@ -164,7 +177,7 @@ function mostrarError(msg){
   s.textContent = `Error: ${msg}`;
   s.style.color = "#e74c3c";
 }
-function limpiarResultados(){ ["valMin","valMed","valMax"].forEach(id=> $(id).textContent="-"); }
+function limpiarResultados(){ ["valMin","valMed","valMax"].forEach(id=> { const el=$(id); if(el) el.textContent="-"; }); }
 
 // ====== CÁLCULO PRINCIPAL (SOLO VALORIZACIÓN) ======
 async function calcular(){
@@ -180,44 +193,47 @@ async function calcular(){
     const aTerr = parseFloat($("areaTerreno").value)||0;
 
     const d = parseInt($("dorms").value)||0;
-    const b = parseInt($("baths").value)||0; // reservado si luego reactivas baño
     const piso = parseInt($("piso").value)||0;
     const asc = $("ascensor").value;
 
     const antig = parseInt($("antiguedad").value)||0;
     const cond = $("estado").value;
     const ef = $("eficiencia").value;
-    const moneda = $("moneda").value; // "S/" o "$"
+    const moneda = $("moneda").value;
 
-    if (!distrito || !zona) return mostrarError("Debe seleccionar distrito y zona");
-    if (!tipo) return mostrarError("Debe seleccionar el tipo de inmueble");
-    if (tipo!=="terreno" && at<=0) return mostrarError("El área construida debe ser mayor a 0");
-    if (aTerr<0) return mostrarError("El área de terreno no puede ser negativa");
-    if (tipo!=="terreno" && d<1) return mostrarError("Debe tener al menos 1 dormitorio");
-    if (antig<0) return mostrarError("La antigüedad no puede ser negativa");
+    if(!distrito || !zona) throw new Error("Seleccione distrito y zona");
+    if(!tipo) throw new Error("Seleccione el tipo de inmueble");
+    if(tipo!=="terreno" && at<=0) throw new Error("Área construida debe ser > 0");
+    if(aTerr<0) throw new Error("Área de terreno no puede ser negativa");
+    if(tipo!=="terreno" && d<1) throw new Error("Debe tener al menos 1 dormitorio");
+    if(antig<0) throw new Error("Antigüedad no puede ser negativa");
 
     const vm2 = buscarVM2(distrito, zona);
-    if (!isFinite(vm2)) return mostrarError("No se encontró VM2 en tarifas para la subzona seleccionada");
+    if(!isFinite(vm2)) throw new Error("No se encontró vm2 en tarifas para la subzona");
 
     let ap = 0;
     if (tipo.includes("departamento")) ap = areaDepto(at, al);
     else if (tipo.includes("casa")) ap = areaCasa(at, al, aTerr);
     else ap = areaTerreno(aTerr);
 
-    let base = vm2 * ap;
+    const base0 = vm2 * ap;
 
-    if (tipo.includes("departamento")) base = ajustePisoAsc(base, piso, asc);
-    if (tipo!=="terreno") base = aplicarDorms(base, d, tipo);
-    base = aplicarAntig(base, antig);
-    base = aplicarCond(base, cond);
-    if (tipo!=="terreno") base = aplicarEfic(base, ef);
+    let val = base0;
+    if (tipo.includes("departamento")) val = ajustePisoAsc(val, piso, asc);
+    if (tipo!=="terreno") val = aplicarDorms(val, d, tipo);
+    val = aplicarAntig(val, antig);
+    val = aplicarCond(val, cond);
+    if (tipo!=="terreno") val = aplicarEfic(val, ef);
+
+    val = capTotal(base0, val); // CAP ±15%
 
     const FX = await obtenerTipoCambio();
     const fx = (moneda==="$") ? (1/FX) : 1;
-    const r = rango(tipo);
-    const valMin = base*(1-r)*fx;
-    const valMed = base*fx;
-    const valMax = base*(1+r)*fx;
+    const r = rangoTipo(tipo);
+
+    const valMin = val*(1-r)*fx;
+    const valMed = val*fx;
+    const valMax = val*(1+r)*fx;
 
     $("summary").textContent = `Estimación para ${tipo} en ${zona}, ${distrito}`;
     $("summary").style.color = "#2c3e50";
@@ -286,6 +302,7 @@ document.addEventListener("DOMContentLoaded", async ()=>{
   const form = $("calc");
   form.addEventListener("submit", (e)=>{ e.preventDefault(); calcular(); });
 });
+
 
 
 
