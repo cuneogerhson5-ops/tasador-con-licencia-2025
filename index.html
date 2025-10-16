@@ -158,9 +158,6 @@
 
   <script src="script.js"></script>
   <script>
-    if (typeof window !== "undefined") { window.emitirLicencia = window.emitirLicencia || emitirLicencia; }
-  </script>
-  <script>
     document.getElementById('emitir-btn').onclick = async () => {
       if (!window.emitirLicencia) return alert('Función no cargada');
       const res = await window.emitirLicencia();
@@ -169,6 +166,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
