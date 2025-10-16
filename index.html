@@ -1,237 +1,125 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Tasador Inmobiliario Pro</title>
-  <style>
-    .hidden { display: none; }
-    .status.ok { color: green; }
-    .status.error { color: red; }
-    .card { border: 1px solid #ccc; padding: 1em; margin: 1em 0; }
-    .form-grid { display: grid; gap: 0.5em; grid-template-columns: 1fr 1fr; }
-    .btn { padding: 0.5em 1em; cursor: pointer; }
-    .btn.primary { background: #3498db; color: #fff; border: none; }
-    .btn.success { background: #2ecc71; color: #fff; border: none; }
-    .result { margin-top: 0.5em; font-weight: bold; }
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Tasación de Inmuebles</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <!-- Ingreso por licencia -->
-  <section id="gate" class="card">
-    <h1>Ingreso</h1>
-    <form id="login-form" class="form-grid">
-      <label>Correo<input type="email" id="email" required></label>
-      <label>Licencia<input type="text" id="licenseId" required></label>
-      <button class="btn primary" type="submit">Entrar</button>
+  <div id="gate" class="login-container">
+    <h2>Acceso Restringido</h2>
+    <form id="login-form" class="login-form">
+      <input type="email" id="email" placeholder="Correo" required>
+      <input type="text" id="licenseId" placeholder="Licencia" required>
+      <button type="submit" class="btn primary">Ingresar</button>
     </form>
-    <div id="gateMsg" class="status"></div>
-  </section>
+    <p id="gateMsg" class="error-message"></p>
+  </div>
 
-  <!-- App oculta hasta validar licencia -->
-  <main id="app-section" class="hidden">
+  <div id="app" class="app-container" style="display: none;">
+    <h1>Sistema de Tasación de Inmuebles</h1>
+    <button id="logout" class="logout-btn">Cerrar Sesión</button>
 
-    <section class="card">
-      <h2>Tasación</h2>
-
-      <!-- Compartido: selects -->
-      <div class="form-grid" style="grid-template-columns:1fr;">
-        <label>Distrito<select id="distrito" required></select></label>
-        <label>Subzona<select id="subzona" required disabled></select></label>
+    <form id="calc">
+      <div class="form-group">
+        <label for="tipo">Tipo de inmueble:</label>
+        <select id="tipo" required>
+          <option value="">Selecciona tipo de inmueble</option>
+          <option>Departamento</option>
+          <option>Casa</option>
+          <option>Terreno</option>
+        </select>
       </div>
-
-      <!-- Sección de formulario dinámico -->
-      <div class="form-grid">
-        <div>
-          <h3>Departamento</h3>
-          <label>Área techada (m²)<input type="number" id="area-techada" min="0" step="0.01"></label>
-          <label>Área libre (m²)<input type="number" id="area-libre" min="0" step="0.01"></label>
-          <label>Antigüedad (años)<input type="number" id="antiguedad" min="0" step="1"></label>
-          <label>Piso<input type="number" id="piso" min="1" step="1"></label>
-          <label>Dormitorios<input type="number" id="dormitorios" min="1" step="1"></label>
-          <label>Condición
-            <select id="condicion">
-              <option value="a estrenar">A estrenar</option>
-              <option value="bueno">Bueno</option>
-              <option value="regular">Regular</option>
-              <option value="para remodelar">Para remodelar</option>
-            </select>
-          </label>
-          <label>Ascensor
-            <select id="ascensor">
-              <option value="si">Sí</option>
-              <option value="no">No</option>
-            </select>
-          </label>
-          <label>Eficiencia energética
-            <select id="eficiencia">
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="C">C</option>
-              <option value="D">D</option>
-              <option value="E">E</option>
-              <option value="F">F</option>
-            </select>
-          </label>
-          <button class="btn primary" id="calc-btn">Calcular</button>
-        </div>
+      <div class="form-group">
+        <label for="distrito">Distrito:</label>
+        <select id="distrito" required>
+          <option value="">Selecciona un distrito</option>
+        </select>
       </div>
-
-      <!-- Resultados -->
-      <div class="result">
-        <div id="summary"></div>
-        <div>En soles: Mín S/ <span id="valMin">-</span>, Med S/ <span id="valMed">-</span>, Máx S/ <span id="valMax">-</span></div>
-        <div>En USD:  Mín $ <span id="valMinUsd">-</span>, Med $ <span id="valMedUsd">-</span>, Máx $ <span id="valMaxUsd">-</span></div>
+      <div class="form-group">
+        <label for="zona">Zona:</label>
+        <select id="zona" required>
+          <option value="">Selecciona una zona</option>
+        </select>
       </div>
-    </section>
+      <div id="areaConstruida-group" class="form-group">
+        <label for="areaConstruida">Área construida (m²):</label>
+        <input type="number" id="areaConstruida" min="1">
+      </div>
+      <div id="areaLibre-group" class="form-group">
+        <label for="areaLibre">Área libre (m²):</label>
+        <input type="number" id="areaLibre" min="0" value="0">
+      </div>
+      <div id="areaTerreno-group" class="form-group">
+        <label for="areaTerreno">Área de terreno (m²):</label>
+        <input type="number" id="areaTerreno" min="1">
+      </div>
+      <div id="dorms-group" class="form-group">
+        <label for="dorms">Dormitorios:</label>
+        <input type="number" id="dorms" min="1">
+      </div>
+      <div id="baths-group" class="form-group">
+        <label for="baths">Baños:</label>
+        <input type="number" id="baths" min="1">
+      </div>
+      <div id="piso-group" class="form-group">
+        <label for="piso">Piso:</label>
+        <input type="number" id="piso" min="1" value="1">
+      </div>
+      <div id="ascensor-group" class="form-group">
+        <label for="ascensor">Ascensor:</label>
+        <select id="ascensor">
+          <option value="con">Con ascensor</option>
+          <option value="sin">Sin ascensor</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="antiguedad">Antigüedad (años):</label>
+        <input type="number" id="antiguedad" min="0" required>
+      </div>
+      <div class="form-group">
+        <label for="estado">Estado de conservación:</label>
+        <select id="estado" required>
+          <option value="excelente">Excelente</option>
+          <option value="bueno">Bueno</option>
+          <option value="regular">Regular</option>
+          <option value="remodelar">Necesita remodelar</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="eficiencia">Eficiencia energética:</label>
+        <select id="eficiencia" required>
+          <option value="A">A (Muy eficiente)</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+          <option value="E">E</option>
+          <option value="F">F (Poco eficiente)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="moneda">Moneda:</label>
+        <select id="moneda" required>
+          <option value="S/">Soles (S/)</option>
+          <option value="$">Dólares ($)</option>
+        </select>
+      </div>
+      <button type="submit" class="btn primary">Calcular Tasación</button>
+    </form>
 
-    <button class="btn success" id="logout">Cerrar sesión</button>
-  </main>
+    <div class="results">
+      <h2 id="summary">Resultados</h2>
+      <div class="result-item"><span>Valor mínimo:</span><span id="valMin">-</span></div>
+      <div class="result-item"><span>Valor medio:</span><span id="valMed">-</span></div>
+      <div class="result-item"><span>Valor máximo:</span><span id="valMax">-</span></div>
+    </div>
+  </div>
 
-  <script>
-    // Configuración y utilidades
-    const BASE_URL = 'https://script.google.com/macros/s/AKfycby9r3ikkEE9PrCBAwueyUph6Xp5-afiifEhKe6dvmc0wP38n5jUwRM8yecDbNg7KyhSMw/exec';
-    const TARIFF_URL = `${BASE_URL}?action=tariffs`;
-    const VALIDATE_URL = `${BASE_URL}?action=validate`;
-    const $ = id => document.getElementById(id);
-    const norm = s => String(s||'').trim().toLowerCase();
-    const unique = arr => [...new Set(arr)];
-    let TARIFAS = [];
-
-    // APIs
-    async function apiTariffs(){
-      const r = await fetch(TARIFF_URL);
-      if(!r.ok) throw new Error(r.status);
-      return (await r.json()).map(t=>({
-        distrito: t.distrito.trim(),
-        subzona: t.subzona.trim(),
-        valorM2: Number(String(t.valorM2).replace(/[^\d.]/g,''))
-      }));
-    }
-    async function apiValidate(email,license){
-      const r = await fetch(`${VALIDATE_URL}&email=${encodeURIComponent(email)}&license=${encodeURIComponent(license)}`);
-      if(!r.ok) throw new Error(r.status);
-      return r.json();
-    }
-    async function obtenerTipoCambio(){ return 3.50; }
-
-    function setStatus(id,msg,ok=false){
-      const el = $(id);
-      el.textContent = msg;
-      el.classList.toggle('ok', ok);
-      el.classList.toggle('error', !ok);
-    }
-
-    // Factores
-    const FACT = {
-      area:   { dpto:0.30 },
-      antig:  { pN:0.03, dA:0.005, dM:0.10 },
-      dorms:  { b:2, i:0.025, iM:0.05, d:0.035, dM:0.07 },
-      efic:   { A:1.05, B:1.03, C:1, D:0.98, E:0.96, F:0.93 },
-      cond:   { "a estrenar":1.06, "bueno":1.03, "regular":0.98, "para remodelar":0.90 },
-      pisoAsc:{ sin7:-0.07, sin4:-0.04, con9:-0.015, con2:0.025 },
-      caps:   { u:0.12, d:0.12 }
-    };
-
-    function areaDepto(at,al){ return at + al*FACT.area.dpto; }
-    function aplicarAntig(v,a){
-      if(a<=1) return v*(1+FACT.antig.pN);
-      const dep = Math.min(a*FACT.antig.dA, FACT.antig.dM);
-      return v*(1-dep);
-    }
-    function aplicarDorms(v,D){
-      const b=FACT.dorms.b;
-      if(D>b) return v*(1+Math.min((D-b)*FACT.dorms.i,FACT.dorms.iM));
-      if(D<b) return v*(1-Math.min((b-D)*FACT.dorms.d,FACT.dorms.dM));
-      return v;
-    }
-    function aplicarCond(v,c){ return v*(FACT.cond[c]||1); }
-    function aplicarEfic(v,e){ return v*(FACT.efic[e]||1); }
-    function ajustePisoAsc(v,p,asc){
-      let d=0, tiene = asc==='si';
-      if(!tiene&&p>=7) d=FACT.pisoAsc.sin7;
-      else if(!tiene&&p>=4) d=FACT.pisoAsc.sin4;
-      else if(tiene&&p>=9) d=FACT.pisoAsc.con9;
-      else if(tiene&&p<=2) d=FACT.pisoAsc.con2;
-      return v*(1+d);
-    }
-    function capTotal(b,v){
-      const r=v/b, mu=1+FACT.caps.u, md=1-FACT.caps.d;
-      return b*Math.min(Math.max(r,md),mu);
-    }
-    function formatear(v){
-      return new Intl.NumberFormat('es-PE',{minimumFractionDigits:0,maximumFractionDigits:0}).format(v);
-    }
-
-    // Carga distritos/subzonas
-    async function cargarTarifas(){
-      TARIFAS = await apiTariffs();
-      $('distrito').innerHTML = '<option value="">Seleccione distrito</option>';
-      unique(TARIFAS.map(x=>x.distrito)).sort().forEach(d=> $('distrito').append(new Option(d,d)));
-      $('distrito').onchange = ()=>{
-        const d = $('distrito').value;
-        const subs = TARIFAS.filter(x=>norm(x.distrito)===norm(d)).map(x=>x.subzona);
-        $('subzona').innerHTML = '<option value="">Seleccione subzona</option>';
-        unique(subs).sort().forEach(z=> $('subzona').append(new Option(z,z)));
-        $('subzona').disabled = false;
-      };
-    }
-
-    // Calcular
-    async function calcular(){
-      const dist = $('distrito').value, subz = $('subzona').value;
-      if(!dist||!subz){ setStatus('gateMsg','Seleccione distrito/subzona',false); return; }
-      const at = parseFloat($('area-techada').value)||0;
-      const al = parseFloat($('area-libre').value)||0;
-      const piso = parseInt($('piso').value)||0;
-      const dorms = parseInt($('dormitorios').value)||0;
-      const asc = $('ascensor').value;
-      const cond = $('condicion').value;
-      const ef = $('eficiencia').value;
-      const antig = parseInt($('antiguedad').value)||0;
-
-      const vm2 = TARIFAS.find(x=>norm(x.distrito)===norm(dist)&&norm(x.subzona)===norm(subz))?.valorM2;
-      let base = vm2 * areaDepto(at,al);
-      let v = ajustePisoAsc(base,piso,asc);
-      v = aplicarDorms(v,dorms);
-      v = aplicarAntig(v,antig);
-      v = aplicarCond(v,cond);
-      v = aplicarEfic(v,ef);
-      v = capTotal(base,v);
-
-      const FX = await obtenerTipoCambio();
-      const r = 0.04;
-      const vmin = v*(1-r), vmed=v, vmax=v*(1+r);
-
-      $('summary').textContent = `Estimación Dept en ${subz}, ${dist}`;
-      setStatus('gateMsg','',true);
-      $('valMin').textContent = formatear(vmin);
-      $('valMed').textContent = formatear(vmed);
-      $('valMax').textContent = formatear(vmax);
-      $('valMinUsd').textContent = Math.round(vmin/FX);
-      $('valMedUsd').textContent = Math.round(vmed/FX);
-      $('valMaxUsd').textContent = Math.round(vmax/FX);
-    }
-
-    // Eventos
-    document.getElementById('login-form').addEventListener('submit', async ev=>{
-      ev.preventDefault();
-      setStatus('gateMsg','Validando...');
-      const res = await apiValidate($('email').value, $('licenseId').value);
-      if(res.valid){
-        setStatus('gateMsg','Licencia válida',true);
-        $('gate').style.display='none';
-        $('app-section').classList.remove('hidden');
-        cargarTarifas();
-      } else setStatus('gateMsg',res.error||'Licencia inválida',false);
-    });
-
-    $('calc-btn').addEventListener('click', calcular);
-    $('logout').addEventListener('click', ()=> location.reload());
-  </script>
+  <script src="script.js"></script>
 </body>
 </html>
+
 
 
 
