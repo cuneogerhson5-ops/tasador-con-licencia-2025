@@ -62,16 +62,23 @@
           <select id="depto-subzona" required disabled></select>
         </label>
 
+        <label>Área construida (m²)
+          <input type="number" id="depto-area-techada" min="0" step="0.01" required>
+        </label>
+        <label>Área libre (m²)
+          <input type="number" id="depto-area-libre" min="0" step="0.01" required>
+        </label>
+
+        <label>Antigüedad (años)
+          <input type="number" id="depto-antiguedad" min="0" step="1" required>
+        </label>
         <label>Piso
           <input type="number" id="depto-piso" min="1" step="1" required>
         </label>
-        <label>Ascensor
-          <select id="depto-ascensor" required>
-            <option value="si">Sí</option>
-            <option value="no">No</option>
-          </select>
-        </label>
 
+        <label>Dormitorios
+          <input type="number" id="depto-dormitorios" min="1" step="1" required>
+        </label>
         <label>Condición
           <select id="depto-condicion" required>
             <option value="a estrenar">A estrenar</option>
@@ -80,18 +87,22 @@
             <option value="para remodelar">Para remodelar</option>
           </select>
         </label>
-        <label>Dormitorios
-          <input type="number" id="depto-dormitorios" min="1" step="1" required>
-        </label>
-        <label>Antigüedad (años)
-          <input type="number" id="depto-antiguedad" min="0" step="1" required>
-        </label>
 
-        <label>Área techada (m²)
-          <input type="number" id="depto-area-techada" min="0" step="0.01" required>
+        <label>Ascensor
+          <select id="depto-ascensor" required>
+            <option value="si">Sí</option>
+            <option value="no">No</option>
+          </select>
         </label>
-        <label>Área libre (m²)
-          <input type="number" id="depto-area-libre" min="0" step="0.01" required>
+        <label>Eficiencia energética
+          <select id="depto-eficiencia" required>
+            <option value="C">C</option>
+            <option value="B">B</option>
+            <option value="A">A</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+          </select>
         </label>
 
         <button class="btn primary" type="submit">Calcular</button>
@@ -107,6 +118,20 @@
           <select id="casa-subzona" required disabled></select>
         </label>
 
+        <label>Área construida (m²)
+          <input type="number" id="casa-area-techada" min="0" step="0.01" required>
+        </label>
+        <label>Área libre (m²)
+          <input type="number" id="casa-area-libre" min="0" step="0.01" required>
+        </label>
+
+        <label>Antigüedad (años)
+          <input type="number" id="casa-antiguedad" min="0" step="1" required>
+        </label>
+        <label>Dormitorios
+          <input type="number" id="casa-dormitorios" min="1" step="1" required>
+        </label>
+
         <label>Condición
           <select id="casa-condicion" required>
             <option value="a estrenar">A estrenar</option>
@@ -115,18 +140,15 @@
             <option value="para remodelar">Para remodelar</option>
           </select>
         </label>
-        <label>Dormitorios
-          <input type="number" id="casa-dormitorios" min="1" step="1" required>
-        </label>
-        <label>Antigüedad (años)
-          <input type="number" id="casa-antiguedad" min="0" step="1" required>
-        </label>
-
-        <label>Área techada (m²)
-          <input type="number" id="casa-area-techada" min="0" step="0.01" required>
-        </label>
-        <label>Área libre (m²)
-          <input type="number" id="casa-area-libre" min="0" step="0.01" required>
+        <label>Eficiencia energética
+          <select id="casa-eficiencia" required>
+            <option value="C">C</option>
+            <option value="B">B</option>
+            <option value="A">A</option>
+            <option value="D">D</option>
+            <option value="E">E</option>
+            <option value="F">F</option>
+          </select>
         </label>
 
         <button class="btn primary" type="submit">Calcular</button>
@@ -141,7 +163,10 @@
         <label>Subzona
           <select id="terreno-subzona" required disabled></select>
         </label>
-        <label>Área (m²)
+        <label>Antigüedad (años)
+          <input type="number" id="terreno-antiguedad" min="0" step="1" value="0" required>
+        </label>
+        <label>Área del terreno (m²)
           <input type="number" id="terreno-area" min="0" step="0.01" required>
         </label>
         <button class="btn primary" type="submit">Calcular</button>
@@ -166,6 +191,8 @@
   </script>
 </body>
 </html>
+
+
 
 
 
