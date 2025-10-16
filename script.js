@@ -31,8 +31,8 @@ const $    = id => document.getElementById(id);
 const norm = s  => String(s||"").trim().toLowerCase();
 const unique = arr => Array.from(new Set(arr));
 
-// ====== ESTADO ======
-let TARIFAS = [];
+// ====== ESTADO (exponer globalmente) ======
+window.TARIFAS = [];
 
 // ====== API ======
 async function apiTariffs() {
@@ -205,39 +205,46 @@ async function calcular(){
 
 // ====== INICIALIZACIÓN ======
 document.addEventListener('DOMContentLoaded', async ()=>{
+  // 1) Cargar tarifas y exponerlas globalmente
   try {
-    TARIFAS = await apiTariffs();
+    window.TARIFAS = await apiTariffs();
+    console.log("Tarifas cargadas:", window.TARIFAS);
   } catch(e){
     console.error("Error cargando tarifas:", e);
     return;
   }
-  // Poblar los tres pares de selects
+
+  // 2) Poblar los tres pares de selects
   ['depto','casa','terreno'].forEach(tipo=>{
-    const dsel=$(`${tipo}-distrito`), ssel=$(`${tipo}-subzona`);
-    if(dsel&&ssel){
+    const dsel=$( `${tipo}-distrito` ), ssel=$( `${tipo}-subzona` );
+    if (dsel && ssel) {
+      // Distritos
       dsel.innerHTML = '<option value="">Selecciona distrito</option>';
-      unique(TARIFAS.map(t=>t.distrito)).sort()
-        .forEach(d=>{
-          const o=document.createElement('option');
-          o.value=d; o.textContent=d;
-          dsel.appendChild(o);
-        });
-      dsel.addEventListener('change',()=>{
-        ssel.disabled=false;
+      unique(window.TARIFAS.map(t=>t.distrito)).sort().forEach(d=>{
+        const o = document.createElement('option');
+        o.value=d; o.textContent=d;
+        dsel.appendChild(o);
+      });
+      console.log(`${tipo}-distrito options:`, Array.from(dsel.options).map(o=>o.value));
+
+      // Al cambiar, poblar subzonas
+      dsel.addEventListener('change', ()=>{
+        ssel.disabled = false;
         ssel.innerHTML = '<option value="">Selecciona subzona</option>';
         unique(
-          TARIFAS.filter(t=>norm(t.distrito)===norm(dsel.value))
-            .map(t=>t.subzona)
+          window.TARIFAS.filter(t=>norm(t.distrito)===norm(dsel.value))
+                         .map(t=>t.subzona)
         ).sort().forEach(z=>{
-          const o=document.createElement('option');
+          const o = document.createElement('option');
           o.value=z; o.textContent=z;
           ssel.appendChild(o);
         });
+        console.log(`${tipo}-subzona options:`, Array.from(ssel.options).map(o=>o.value));
       });
     }
   });
 
-  // Validación licencia
+  // 3) Validación licencia
   $("license-form")?.addEventListener('submit', async ev=>{
     ev.preventDefault();
     const em=$("email").value.trim(), lic=$("licenseId").value.trim();
@@ -255,7 +262,7 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     }
   });
 
-  // Emisión
+  // 4) Emisión
   $("emitir-btn")?.addEventListener('click', async ()=>{
     setStatus("purchase-status","Emitiendo...");
     try{
@@ -269,11 +276,13 @@ document.addEventListener('DOMContentLoaded', async ()=>{
     }
   });
 
-  // Cálculo
+  // 5) Cálculo
   $("calc")?.addEventListener('submit', e=>{
-    e.preventDefault(); calcular();
+    e.preventDefault();
+    calcular();
   });
 });
+
 
 
 
